@@ -1,0 +1,131 @@
+# Builds the Unity project to an Xcode project on Linux (GameCI), then signs it on
+# macOS and uploads an IPA to TestFlight. Setup steps and secret names: docs/IOS_BUILD.md
+# This workflow does not change the GitHub Pages deploy.
+name: iOS TestFlight
+
+on:
+  workflow_dispatch:
+  push:
+    branches: [main]
+    paths:
+      - "unity/**"
+      - ".github/workflows/ios-testflight.yml"
+
+concurrency:
+  group: ios-testflight
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  unity-export:
+    name: Export Xcode project
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Require secrets
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+        run: bash unity/OutpostZero/Tools/ci/check-ios-secrets.sh
+
+      - name: Cache Unity Library
+        uses: actions/cache@v4
+        with:
+          path: unity/OutpostZero/Library
+          key: Library-OutpostZero-iOS-${{ hashFiles('unity/OutpostZero/Assets/**', 'unity/OutpostZero/Packages/**', 'unity/OutpostZero/ProjectSettings/**') }}
+          restore-keys: |
+            Library-OutpostZero-iOS-
+
+      - name: Cache Unity incremental player build
+        uses: actions/cache@v4
+        with:
+          path: ${{ runner.temp }}/_github_home/.cache/unity3d/bee
+          key: IncrementalBuildCache-OutpostZero-iOS-${{ github.sha }}
+          restore-keys: |
+            IncrementalBuildCache-OutpostZero-iOS-
+
+      - name: Export iOS Xcode project
+        uses: game-ci/unity-builder@v4
+        env:
+          UNITY_EMAIL: ${{ secrets.UNITY_EMAIL }}
+          UNITY_PASSWORD: ${{ secrets.UNITY_PASSWORD }}
+          UNITY_LICENSE: ${{ secrets.UNITY_LICENSE }}
+          UNITY_SERIAL: ${{ secrets.UNITY_SERIAL }}
+        with:
+          unityVersion: 2022.3.68f1
+          targetPlatform: iOS
+          projectPath: unity/OutpostZero
+          buildsPath: unity/OutpostZero/build
+          buildName: Xcode
+          buildMethod: OutpostZero.EditorTools.IosBuild.Build
+          customParameters: -buildNumber ${{ github.run_number }} -appleTeamId ${{ secrets.APPLE_TEAM_ID }}
+          versioning: None
+
+      - name: Upload Xcode project
+        uses: actions/upload-artifact@v4
+        with:
+          name: unity-ios-xcode
+          path: unity/OutpostZero/build/iOS/Xcode
+          retention-days: 7
+          if-no-files-found: error
+
+  testflight:
+    name: Sign and upload to TestFlight
+    needs: unity-export
+    runs-on: macos-latest
+    timeout-minutes: 60
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Download Xcode project
+        uses: actions/download-artifact@v4
+        with:
+          name: unity-ios-xcode
+          path: xcode
+
+      - name: Setup Ruby
+        uses: ruby/setup-ruby@v1
+        with:
+          ruby-version: "3.3"
+          bundler-cache: true
+          working-directory: unity/OutpostZero
+
+      - name: Decode App Store Connect API key
+        env:
+          APP_STORE_CONNECT_KEY_BASE64: ${{ secrets.APP_STORE_CONNECT_KEY_BASE64 }}
+        run: |
+          set -euo pipefail
+          out="$RUNNER_TEMP/AuthKey.p8"
+          printf '%s' "$APP_STORE_CONNECT_KEY_BASE64" | tr -d '[:space:]' | base64 --decode > "$out"
+          if ! grep -q "BEGIN PRIVATE KEY" "$out"; then
+            echo "::error::APP_STORE_CONNECT_KEY_BASE64 did not decode to an App Store Connect .p8 key. Encode the AuthKey file itself, not a path or a screenshot. See docs/IOS_BUILD.md."
+            exit 1
+          fi
+          echo "APP_STORE_CONNECT_KEY_PATH=$out" >> "$GITHUB_ENV"
+
+      - name: Sign and upload
+        working-directory: unity/OutpostZero
+        env:
+          APP_STORE_CONNECT_KEY_ID: ${{ secrets.APP_STORE_CONNECT_KEY_ID }}
+          APP_STORE_CONNECT_ISSUER_ID: ${{ secrets.APP_STORE_CONNECT_ISSUER_ID }}
+          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          MATCH_GIT_URL: ${{ secrets.MATCH_GIT_URL }}
+          MATCH_GIT_TOKEN: ${{ secrets.MATCH_GIT_TOKEN }}
+          MATCH_PASSWORD: ${{ secrets.MATCH_PASSWORD }}
+          XCODE_DIR: ${{ github.workspace }}/xcode
+        run: bundle exec fastlane ios beta

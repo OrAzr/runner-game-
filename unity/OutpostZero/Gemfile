@@ -1,0 +1,4 @@
+source "https://rubygems.org"
+
+# Used by .github/workflows/ios-testflight.yml on the macOS runner.
+gem "fastlane", "~> 2.227"
