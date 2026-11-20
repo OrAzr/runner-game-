@@ -95,10 +95,18 @@ namespace OutpostZero.EditorTools
         {
             PlayerSettings.companyName = "OutpostZero";
             PlayerSettings.productName = "Outpost Zero";
+            PlayerSettings.bundleVersion = IosBuild.MarketingVersion;
             PlayerSettings.defaultInterfaceOrientation = UIOrientation.Portrait;
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, "com.outpostzero.game");
-            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, "com.outpostzero.game");
+            PlayerSettings.allowedAutorotateToPortrait = true;
+            PlayerSettings.allowedAutorotateToPortraitUpsideDown = false;
+            PlayerSettings.allowedAutorotateToLandscapeLeft = false;
+            PlayerSettings.allowedAutorotateToLandscapeRight = false;
+            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.Android, IosBuild.BundleId);
+            PlayerSettings.SetApplicationIdentifier(BuildTargetGroup.iOS, IosBuild.BundleId);
             PlayerSettings.Android.minSdkVersion = AndroidSdkVersions.AndroidApiLevel24;
+            PlayerSettings.SetScriptingBackend(BuildTargetGroup.iOS, ScriptingImplementation.IL2CPP);
+            PlayerSettings.iOS.appleEnableAutomaticSigning = false;
+            PlayerSettings.iOS.targetOSVersionString = "15.0";
         }
     }
 }

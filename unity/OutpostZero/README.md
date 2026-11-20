@@ -43,9 +43,13 @@ Works with the Built-in render pipeline; `Prims` also picks URP shaders if you s
 3. *Build* (APK for testing) or enable *Build App Bundle (Google Play)* for an `.aab`.
 
 ## Build for iOS
-1. Needs a Mac with Xcode and an Apple Developer account.
-2. *File → Build Settings → iOS → Switch Platform → Build*. This writes an Xcode project.
-3. Open the `.xcodeproj` in Xcode, choose your Team under *Signing & Capabilities*, and run it on a device
+
+The cloud TestFlight pipeline is [docs/IOS_BUILD.md](../../docs/IOS_BUILD.md). It exports an Xcode project with GameCI and uploads an IPA to TestFlight. Signing certificates are created in CI, so that path does not need a Mac.
+
+A local Xcode build still works if you have a Mac:
+
+1. *File → Build Settings → iOS → Switch Platform → Build*. This writes an Xcode project.
+2. Open the `.xcodeproj` in Xcode, choose your Team under *Signing & Capabilities*, and run it on a device
    or *Product → Archive* to upload to TestFlight/App Store.
 
 ## Audio
