@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace OutpostZero
 {
-    public enum Sfx { Rifle, Shotgun, FlameLoop, GateGood, GateBad, ZombieGroan, ZombieHit, SoldierLost, CrateOpen, BossRoar, Victory, Defeat, UIClick }
+    public enum Sfx { Rifle, Shotgun, FlameLoop, GateGood, GateBad, GateTick, ZombieGroan, ZombieHit, SoldierLost, CrateOpen, BossRoar, Victory, Defeat, UIClick }
 
     /// <summary>Plays the original synthesized clips in Assets/Audio. Clips are wired by the scene builder
     /// (Outpost Zero > Build Main Scene); a small voice pool avoids allocation, with per-sound throttling.</summary>
@@ -14,7 +14,7 @@ namespace OutpostZero
         [System.Serializable] public class Entry { public Sfx id; public AudioClip clip; }
         public List<Entry> clips = new List<Entry>();
         public AudioClip music;
-        [Range(0, 1)] public float sfxVolume = 0.8f, musicVolume = 0.45f;
+        [Range(0, 1)] public float sfxVolume = 0.7f, musicVolume = 0.55f;
         public int voices = 16;
 
         readonly Dictionary<Sfx, AudioClip> map = new Dictionary<Sfx, AudioClip>();
@@ -40,7 +40,7 @@ namespace OutpostZero
             if (throttle > 0 && lastPlayed.TryGetValue(id, out var t) && now - t < throttle) return;
             lastPlayed[id] = now;
             var src = pool[next]; next = (next + 1) % pool.Length;
-            src.pitch = pitch * Random.Range(0.94f, 1.06f);
+            src.pitch = pitch * Random.Range(0.97f, 1.04f);
             src.PlayOneShot(clip, volume * sfxVolume);
         }
 

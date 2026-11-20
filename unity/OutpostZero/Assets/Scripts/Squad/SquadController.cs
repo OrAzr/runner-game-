@@ -17,6 +17,7 @@ namespace OutpostZero
 
         readonly List<Soldier> soldiers = new List<Soldier>(); // index 0 unused (Rook)
         LevelConfig level; SteeringInput input; TextMesh countLabel; int shownCount = -1;
+        float vx, lean, countPop;
 
         public IReadOnlyList<Soldier> Soldiers => soldiers;
 
@@ -36,17 +37,26 @@ namespace OutpostZero
         {
             var gm = GameManager.I; float dt = Time.deltaTime;
             bool playing = gm != null && gm.IsPlaying;
+            bool running = playing && gm.State == GameState.Running;
             if (playing)
             {
                 var p = transform.position;
                 if (gm.State == GameState.Running) p.z = Mathf.Min(level.bossDistance, p.z + level.runSpeed * dt);
-                p.x = Mathf.Lerp(p.x, input.TargetX, Mathf.Min(1, dt * 10f));
+                float err = input.TargetX - p.x;
+                float desired = Mathf.Clamp(err * 8f, -10f, 10f);
+                vx = Mathf.Lerp(vx, desired, Mathf.Min(1f, dt * 12f));
+                p.x = Mathf.Clamp(p.x + vx * dt, -level.roadHalfWidth + 0.45f, level.roadHalfWidth - 0.45f);
+                lean = Mathf.Lerp(lean, Mathf.Clamp(-vx * 3.2f, -18f, 18f), Mathf.Min(1f, dt * 9f));
                 transform.position = p;
             }
-            SyncBodies(playing && gm.State == GameState.Running, dt);
+            SyncBodies(running, dt);
             Rook.Tick(dt, Radius);
-            if (shownCount != Count) { shownCount = Count; countLabel.text = Count.ToString(); }
-            countLabel.transform.localPosition = new Vector3(0, 2.6f + Radius * 0.3f, -0.3f);
+            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler(running ? 8f : 2f, 0, lean);
+            if (shownCount != Count) { shownCount = Count; countLabel.text = Count.ToString(); countPop = 1f; }
+            countPop = Mathf.Max(0f, countPop - dt * 3.2f);
+            float pop = 1f + countPop * 0.5f;
+            countLabel.transform.localScale = Vector3.one * pop;
+            countLabel.transform.localPosition = new Vector3(0, 2.55f + Radius * 0.25f + countPop * 0.25f, -0.2f);
         }
 
         void SyncBodies(bool running, float dt)
@@ -57,18 +67,18 @@ namespace OutpostZero
             float hw = level.roadHalfWidth - 0.3f;
             for (int i = 1; i < soldiers.Count; i++)
             {
-                var slot = transform.position + Formation.Offset(i);
+                var slot = transform.position + Formation.Offset(i, Time.time, vx);
                 slot.x = Mathf.Clamp(slot.x, -hw, hw);
-                soldiers[i].Tick(slot, running, dt);
+                soldiers[i].Tick(slot, running, dt, lean);
             }
-            Rook.Body.localPosition = Formation.Offset(0) + Vector3.up * (running ? Mathf.Abs(Mathf.Sin(Time.time * 11f)) * 0.06f : 0);
+            Rook.Body.localPosition = Formation.Offset(0, Time.time, vx) + Vector3.up * (running ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0);
             Rook.Body.gameObject.SetActive(Count > 0);
         }
 
         Soldier SpawnSoldier(int i)
         {
             var s = Soldier.Create(transform.parent);
-            s.transform.position = transform.position + Formation.Offset(i) + Vector3.back * 2f;
+            s.transform.position = transform.position + Formation.Offset(i, Time.time, vx) + Vector3.back * 1.8f;
             return s;
         }
 
@@ -83,8 +93,23 @@ namespace OutpostZero
         {
             int before = Count;
             Count = Mathf.Max(0, op.Apply(Count));
-            AudioManager.I?.Play(op.Good ? Sfx.GateGood : Sfx.GateBad);
-            GameUI.I?.Popup(op.Text + "  →  " + Count, Count >= before);
+            ResolveGate(op.Text, before, op.Good);
+        }
+
+        public void ApplyCounter(int delta)
+        {
+            int before = Count;
+            Count = Mathf.Max(0, Count + delta);
+            ResolveGate(GateOp.Format(delta), before, delta >= 0);
+        }
+
+        void ResolveGate(string text, int before, bool good)
+        {
+            AudioManager.I?.Play(good ? Sfx.GateGood : Sfx.GateBad, good ? 0.95f : 0.8f);
+            GameUI.I?.Popup(text + "  →  " + Count, Count >= before);
+            Effects.Burst(transform.position + Vector3.up * 1.3f, good ? 16 : 10, good ? new Color(0.56f, 0.78f, 1f) : new Color(1f, 0.42f, 0.33f), 5f);
+            GameManager.I.Shake(good ? 0.2f : 0.32f);
+            countPop = 1f;
             if (Count <= 0) GameManager.I.EndRun(false);
         }
 
@@ -92,7 +117,8 @@ namespace OutpostZero
         {
             if (Rook.ShieldActive || n <= 0) return;
             Count = Mathf.Max(0, Count - n);
-            AudioManager.I?.Play(Sfx.SoldierLost, 0.9f, 1f, 0.06f);
+            countPop = 1f;
+            AudioManager.I?.Play(Sfx.SoldierLost, 0.75f, 1f, 0.06f);
             GameManager.I.Shake(0.15f);
             if (Count <= 0) GameManager.I.EndRun(false);
         }

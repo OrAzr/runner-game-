@@ -22,11 +22,16 @@ namespace OutpostZero
             return s;
         }
 
-        public void Tick(Vector3 slot, bool running, float dt)
+        public void Tick(Vector3 slot, bool running, float dt, float lean)
         {
-            var p = Vector3.Lerp(transform.position, slot, Mathf.Min(1, dt * 8f));
-            p.y = running ? Mathf.Abs(Mathf.Sin(Time.time * 12f + bobSeed)) * 0.07f : 0;
+            float k = 4.2f + (bobSeed % 5f) * 1.15f;
+            var p = transform.position;
+            p.x = Mathf.Lerp(p.x, slot.x, Mathf.Min(1f, dt * k));
+            p.z = Mathf.Lerp(p.z, slot.z, Mathf.Min(1f, dt * (k + 1.5f)));
+            float step = running ? Mathf.Sin(Time.time * 13f + bobSeed) : 0f;
+            p.y = running ? Mathf.Abs(step) * 0.1f : 0f;
             transform.position = p;
+            transform.rotation = Quaternion.Euler(step * 10f, 0f, lean * (0.65f + (bobSeed % 3f) * 0.12f));
         }
     }
 }

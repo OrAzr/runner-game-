@@ -25,6 +25,7 @@ namespace OutpostZero
 
         GameObject runRoot;
         CameraFollow cam;
+        float hitstop, nextStop;
 
         void Awake()
         {
@@ -65,7 +66,22 @@ namespace OutpostZero
 
         void Update()
         {
+            Effects.TickNumbers();
+            if (hitstop > 0f)
+            {
+                hitstop -= Time.unscaledDeltaTime;
+                Time.timeScale = 0.06f;
+                if (hitstop <= 0f) Time.timeScale = 1f;
+            }
             if (State == GameState.Running && Squad.Distance >= level.bossDistance) BeginBoss();
+        }
+
+        /// <summary>Brief slow-motion punch. Cooldown keeps a big squad from freezing the boss.</summary>
+        public void HitStop(float seconds)
+        {
+            if (Time.unscaledTime < nextStop) return;
+            hitstop = Mathf.Max(hitstop, seconds);
+            nextStop = Time.unscaledTime + 0.18f;
         }
 
         void BeginBoss()
@@ -85,6 +101,7 @@ namespace OutpostZero
         public void EndRun(bool win)
         {
             if (!IsPlaying) return;
+            hitstop = 0f; Time.timeScale = 1f;
             State = win ? GameState.Victory : GameState.Defeat;
             AudioManager.I?.StopMusic();
             AudioManager.I?.StopFlame();

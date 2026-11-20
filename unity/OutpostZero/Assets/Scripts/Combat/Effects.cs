@@ -39,7 +39,39 @@ namespace OutpostZero
             var ep = new ParticleSystem.EmitParams { position = pos, startColor = c, applyShapeToPosition = true };
             for (int i = 0; i < n; i++) { ep.velocity = Random.insideUnitSphere * speed + Vector3.up * speed * 0.5f; ps.Emit(ep, 1); }
         }
-        public static void Spark(Vector3 pos) => Burst(pos, 1, new Color(1f, 0.94f, 0.6f), 1.5f);
+        public static void Spark(Vector3 pos) => Spark(pos, new Color(1f, 0.94f, 0.6f));
+        public static void Spark(Vector3 pos, Color c) => Burst(pos, 4, c, 4.5f);
+        public static void Flash(Vector3 pos, Color c) => Burst(pos, 1, c, 2.2f);
+
+        static readonly TextMesh[] numbers = new TextMesh[12];
+        static float[] numberLife = new float[12];
+        static int numberCursor;
+        public static void Number(Vector3 pos, string text, Color c)
+        {
+            if (numbers[0] == null)
+            {
+                for (int i = 0; i < numbers.Length; i++)
+                {
+                    numbers[i] = Prims.Label3D(null, "", Vector3.zero, 0.7f, Color.white);
+                    numbers[i].gameObject.SetActive(false);
+                }
+            }
+            var tm = numbers[numberCursor]; numberLife[numberCursor] = 0.55f; numberCursor = (numberCursor + 1) % numbers.Length;
+            tm.gameObject.SetActive(true); tm.text = text; tm.color = c; tm.transform.position = pos;
+        }
+
+        public static void TickNumbers()
+        {
+            float dt = Time.deltaTime;
+            for (int i = 0; i < numbers.Length; i++)
+            {
+                if (numbers[i] == null || numberLife[i] <= 0f) continue;
+                numberLife[i] -= dt;
+                numbers[i].transform.position += Vector3.up * dt * 1.8f;
+                var c = numbers[i].color; c.a = Mathf.Clamp01(numberLife[i] / 0.55f); numbers[i].color = c;
+                if (numberLife[i] <= 0f) numbers[i].gameObject.SetActive(false);
+            }
+        }
 
         public static ParticleSystem CreateFlame(Transform parent)
         {

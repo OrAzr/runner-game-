@@ -63,7 +63,7 @@ namespace OutpostZero.EditorTools
         {
             (Sfx id, string file)[] table = {
                 (Sfx.Rifle, "sfx_rifle"), (Sfx.Shotgun, "sfx_shotgun"), (Sfx.FlameLoop, "sfx_flamethrower_loop"),
-                (Sfx.GateGood, "sfx_gate_good"), (Sfx.GateBad, "sfx_gate_bad"), (Sfx.ZombieGroan, "sfx_zombie_groan"),
+                (Sfx.GateGood, "sfx_gate_good"), (Sfx.GateBad, "sfx_gate_bad"), (Sfx.GateTick, "sfx_gate_tick"), (Sfx.ZombieGroan, "sfx_zombie_groan"),
                 (Sfx.ZombieHit, "sfx_zombie_hit"), (Sfx.SoldierLost, "sfx_soldier_lost"), (Sfx.CrateOpen, "sfx_crate_open"),
                 (Sfx.BossRoar, "sfx_boss_roar"), (Sfx.Victory, "sting_victory"), (Sfx.Defeat, "sting_defeat"), (Sfx.UIClick, "sfx_ui_click"),
             };

@@ -13,9 +13,17 @@ export class AudioManager {
     const AC = window.AudioContext || window.webkitAudioContext;
     if (!AC) return;
     this.ctx = new AC();
-    this.master = this.ctx.createGain(); this.master.gain.value = 0.9; this.master.connect(this.ctx.destination);
-    this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.8; this.sfxBus.connect(this.master);
-    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.45; this.musicBus.connect(this.master);
+    // Light bus compression so stacked gunshots stay punchy without burying the music.
+    this.comp = this.ctx.createDynamicsCompressor();
+    this.comp.threshold.value = -16;
+    this.comp.knee.value = 18;
+    this.comp.ratio.value = 2.5;
+    this.comp.attack.value = 0.003;
+    this.comp.release.value = 0.16;
+    this.master = this.ctx.createGain(); this.master.gain.value = 0.95;
+    this.master.connect(this.comp); this.comp.connect(this.ctx.destination);
+    this.sfxBus = this.ctx.createGain(); this.sfxBus.gain.value = 0.7; this.sfxBus.connect(this.master);
+    this.musicBus = this.ctx.createGain(); this.musicBus.gain.value = 0.58; this.musicBus.connect(this.master);
     // iOS: play a silent buffer inside the gesture
     const b = this.ctx.createBuffer(1, 1, 22050); const s = this.ctx.createBufferSource(); s.buffer = b; s.connect(this.ctx.destination); s.start(0);
     await Promise.all(Object.entries(AUDIO_DATA).map(async ([name, b64]) => {

@@ -76,7 +76,7 @@ namespace OutpostZero
             menu = Img("Menu", root, new Color(0.04f, 0.06f, 0.07f, 0.7f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
             var title = Txt("Title", menu.transform, "OUTPOST <color=#e8792b>ZERO</color>", 110, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, new Vector2(0, 0.55f), new Vector2(1, 0.7f), Vector2.zero, Vector2.zero);
             title.supportRichText = true;
-            Txt("Sub", menu.transform, "Steer through blue gates to grow,\navoid red ones, shoot crates for weapons,\nand take down the boss.", 36, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleCenter, new Vector2(0, 0.45f), new Vector2(1, 0.55f), Vector2.zero, Vector2.zero);
+            Txt("Sub", menu.transform, "Shoot the red numbered gates until\nthey turn blue, then run through them.\nGrab crates and take down the boss.", 34, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleCenter, new Vector2(0, 0.42f), new Vector2(1, 0.58f), Vector2.zero, Vector2.zero);
             Btn("Play", menu.transform, "PLAY", Palette.Orange, new Vector2(0, -150), new Vector2(420, 130), () => GameManager.I.StartRun());
 
             // End
