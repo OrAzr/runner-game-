@@ -1,7 +1,8 @@
 # Outpost Zero (Unity draft)
 
 A first playable draft of the battle run: Rook's squad runs up a clean road, you steer through
-+/x gates, shoot crates for temporary weapons, fight sparse zombie groups and finish with a boss.
++/x gates and shootable counter gates (a red number such as -20 that climbs with each bullet and
+turns blue past zero), shoot crates for temporary weapons, fight sparse zombie groups and finish with a boss.
 All art is placeholder low-poly geometry built from code. All audio is original and synthesized.
 
 ## Open & play
@@ -27,7 +28,7 @@ Controls: drag left/right with the mouse (or touch on device). Arrow keys / A-D 
 | Squad | `SquadController` (count, forward motion, gates, losses), `Formation` (sunflower formation), `SteeringInput` (touch + mouse drag), `Soldier`, `HeroRook` (starting hero, Shield Wall special) |
 | Combat | `AutoShooter` (fire rate scales with squad size, timed weapon pickups), `Projectile` (pooled tracers), `Weapons` (rifle / shotgun / flamethrower stats), `Damageable`, `Effects` (code-built particles) |
 | Enemies | `Zombie`, `Boss` |
-| World | `Gate` (+N, -N, xN, ÷N), `WeaponCrate`, `LevelBuilder` |
+| World | `Gate` (+N, xN, and shootable `#-20` counters), `WeaponCrate`, `LevelBuilder` |
 | UI | `GameUI` (runtime uGUI: menu, HUD, boss HP bar, shield button, end screen, safe area) |
 | Audio | `AudioManager` (voice pool, throttling, music + flamethrower loops) |
 | Editor | `Assets/Editor/OutpostSceneBuilder.cs` |

@@ -29,18 +29,19 @@ namespace OutpostZero
         public float bossStartGap = 30f;
         public float pickupDuration = 10f;
 
+        // "#" gates are shootable counters (start negative, bullets add 1, stronger guns add more).
         public List<GateDef> gates = new List<GateDef> {
-            new GateDef(28, "+5", "+3"),  new GateDef(75, "x2", "-4"),   new GateDef(130, "+8", "x2"),
-            new GateDef(190, "-10", "+15"), new GateDef(255, "+10", "-5"), new GateDef(320, "/2", "+20"),
-            new GateDef(365, "x2", "+12"),
+            new GateDef(20, "+4", "+3"), new GateDef(48, "#-20", "#-14"), new GateDef(100, "x2", "#-30"),
+            new GateDef(155, "#-34", "+12"), new GateDef(210, "#-18", "#-40"), new GateDef(268, "x2", "#-42"),
+            new GateDef(325, "#-32", "+16"), new GateDef(372, "#-24", "x2"),
         };
         public List<ZombieGroupDef> zombies = new List<ZombieGroupDef> {
-            new ZombieGroupDef(55, 0, 3, 3), new ZombieGroupDef(105, -2, 5, 4), new ZombieGroupDef(160, 1.5f, 6, 5),
-            new ZombieGroupDef(225, 0, 8, 6), new ZombieGroupDef(290, -1.5f, 9, 8), new ZombieGroupDef(345, 1, 10, 10),
+            new ZombieGroupDef(56, 0, 4, 3), new ZombieGroupDef(118, -2.2f, 5, 4), new ZombieGroupDef(175, 2, 5, 5),
+            new ZombieGroupDef(238, -1.6f, 6, 6), new ZombieGroupDef(295, 1.8f, 6, 7), new ZombieGroupDef(348, 0, 6, 8),
         };
         public List<CrateDef> crates = new List<CrateDef> {
-            new CrateDef(95, 2.6f, WeaponType.Shotgun, 6), new CrateDef(210, -2.6f, WeaponType.Flamethrower, 10),
-            new CrateDef(300, 2.6f, WeaponType.Shotgun, 14),
+            new CrateDef(90, 3.3f, WeaponType.Shotgun, 6), new CrateDef(198, -3.3f, WeaponType.Flamethrower, 10),
+            new CrateDef(292, 3.3f, WeaponType.Shotgun, 14),
         };
     }
 

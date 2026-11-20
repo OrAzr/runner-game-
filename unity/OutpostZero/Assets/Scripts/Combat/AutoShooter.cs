@@ -42,20 +42,22 @@ namespace OutpostZero
                     var tp = t.transform.position; float dz = tp.z - sp.z, dx = tp.x - sp.x;
                     if (dz > -0.5f && dz < R && Mathf.Abs(dx) < squad.Radius + 0.8f + dz * w.cone) t.TakeDamage(dps * dt);
                 }
+                Gate.FlameTick(sp, R, w.gateRate * dt);
                 return;
             }
             SetFlame(false);
             shotAcc += shooters * w.rate * dt;
             int shots = Mathf.FloorToInt(shotAcc); shotAcc -= shots;
-            if (shots > 0) AudioManager.I?.Play(w.sfx, Current == WeaponType.AssaultRifle ? 0.5f : 0.7f, 1f, Current == WeaponType.AssaultRifle ? 0.075f : 0.18f);
+            if (shots > 0) AudioManager.I?.Play(w.sfx, Current == WeaponType.AssaultRifle ? 0.46f : 0.62f, Random.Range(0.92f, 1.12f), Current == WeaponType.AssaultRifle ? 0.055f : 0.12f);
             int vis = Mathf.Max(1, Mathf.Min(squad.Count, SquadController.MaxVisible));
             while (shots-- > 0)
             {
                 Vector3 m = squad.MuzzleOf(Random.Range(0, vis));
+                Effects.Flash(m, w.tracer);
                 for (int p = 0; p < w.pellets; p++)
                 {
                     float a = Random.Range(-w.spread, w.spread);
-                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, w.damage, w.tracer);
+                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, w.damage, w.tracer, w.gate);
                 }
             }
         }

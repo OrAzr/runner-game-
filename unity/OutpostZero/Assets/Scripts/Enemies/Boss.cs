@@ -42,6 +42,19 @@ namespace OutpostZero
             if (roarTimer <= 0) { roarTimer = 7f; AudioManager.I?.Play(Sfx.BossRoar, 0.7f); gm.Shake(0.35f); }
         }
 
+        protected override void OnHit(bool fromBullet, float amount)
+        {
+            if (!fromBullet || amount < 0.9f) return;
+            var p = transform.position; p.z += 0.12f; transform.position = p;
+            Effects.Number(p + Vector3.up * 3.1f, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(), new Color(1f, 0.89f, 0.48f));
+        }
+
+        public override void TakeDamage(float amount, bool fromBullet = false)
+        {
+            base.TakeDamage(amount, fromBullet);
+            if (fromBullet && amount >= 0.9f) GameManager.I?.HitStop(0.04f);
+        }
+
         protected override void Die()
         {
             AudioManager.I?.Play(Sfx.BossRoar, 0.8f, 1.3f);

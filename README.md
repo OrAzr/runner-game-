@@ -1,6 +1,6 @@
 # Outpost Zero
 
-A Last War-style squad runner. Steer Rook's squad up the road, grow through the gates, grab weapon crates, and take down the boss.
+A Last War-style squad runner. Steer Rook's squad up the road, shoot the numbered gates until they turn blue, grab weapon crates, and take down the boss.
 
 **Play the browser prototype:** [https://orazr.github.io/runner-game-/](https://orazr.github.io/runner-game-/)
 

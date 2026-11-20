@@ -22,7 +22,7 @@ namespace OutpostZero
         }
 
         void Update() { box.Rotate(0, 45f * Time.deltaTime, 0); if (flash > 0) flash -= Time.deltaTime; }
-        protected override void OnHit() { hpLabel.text = Mathf.Max(0, Mathf.CeilToInt(hp)).ToString(); }
+        protected override void OnHit(bool fromBullet, float amount) { hpLabel.text = Mathf.Max(0, Mathf.CeilToInt(hp)).ToString(); }
 
         protected override void Die()
         {

@@ -6,7 +6,7 @@ namespace OutpostZero
     /// Arrow keys / A-D also work in the editor. Uses the legacy Input Manager (default for new projects).</summary>
     public class SteeringInput : MonoBehaviour
     {
-        public float sensitivity = 2.4f; // full screen-width drag = 2.4 road half-widths
+        public float sensitivity = 2.6f; // full screen-width drag = 2.6 road half-widths
         public float TargetX { get; set; }
         float halfWidth = 5f, startPointerX, startTarget; bool dragging;
 
