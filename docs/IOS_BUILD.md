@@ -4,7 +4,7 @@ This installs the Unity game on an iPhone through TestFlight. GitHub Actions bui
 
 The workflow file is `.github/workflows/ios-testflight.yml`. It does not change the browser Pages deploy.
 
-- **Unity export** runs on Linux with [GameCI](https://game.ci/docs/github/builder) and Unity **2022.3.68f1** (the version in `ProjectSettings/ProjectVersion.txt`, which has a GameCI iOS image).
+- **Unity export** runs on Linux with [GameCI](https://game.ci/docs/github/builder) and Unity **2022.3.62f1**. That is the last 2022.3 release a Personal license can open. Later 2022.3 patches are Extended LTS and refuse a Personal license (`com.unity.editor.access.xlts`). The editor version is pinned in `ProjectSettings/ProjectVersion.txt`, and GameCI publishes an iOS image for it.
 - **Signing and upload** run on a GitHub macOS runner. [fastlane match](https://docs.fastlane.tools/actions/match/) creates the Apple Distribution certificate and the App Store provisioning profile during the job and stores them, encrypted, in a private git repo you create. You do not need a Mac for signing.
 
 The iOS bundle id is `com.outpostzero.game`. The app is portrait. The marketing version is `0.2.0`. The TestFlight build number is the GitHub Actions run number.
@@ -120,7 +120,7 @@ Internal testers do not need a beta review. The first build can take a few extra
 
 1. Checks that every secret above is set. If one is missing, the log names it and stops before Unity starts.
 2. Restores a cache of `unity/OutpostZero/Library` so later runs skip a cold import.
-3. Runs `OutpostZero.EditorTools.IosBuild.Build` inside Unity 2022.3.68f1. That builds `Assets/Scenes/Main.unity` from `OutpostSceneBuilder`, sets the bundle id, portrait orientation, and the run number, then writes an Xcode project.
+3. Runs `OutpostZero.EditorTools.IosBuild.Build` inside Unity 2022.3.62f1. That builds `Assets/Scenes/Main.unity` from `OutpostSceneBuilder`, sets the bundle id, portrait orientation, and the run number, then writes an Xcode project.
 4. On macOS, fastlane creates the App Store Connect app record if needed, creates or downloads the signing certificate, builds the IPA, and uploads it.
 
 ## If a run fails
