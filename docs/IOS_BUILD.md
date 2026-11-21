@@ -121,7 +121,7 @@ Internal testers do not need a beta review. The first build can take a few extra
 1. Checks that every secret above is set. If one is missing, the log names it and stops before Unity starts.
 2. Restores a cache of `unity/OutpostZero/Library` so later runs skip a cold import.
 3. Runs `OutpostZero.EditorTools.IosBuild.Build` inside Unity 2022.3.62f1. That builds `Assets/Scenes/Main.unity` from `OutpostSceneBuilder`, sets the bundle id, portrait orientation, and the run number, then writes an Xcode project.
-4. On macOS, fastlane creates the App Store Connect app record if needed, creates or downloads the signing certificate, builds the IPA, and uploads it.
+4. On macOS, fastlane registers the bundle id and the App Store Connect app with the API key (no Apple ID login), creates or downloads the signing certificate, builds the IPA, and uploads it. fastlane 2.241.1 cannot pass that key to `produce`, so the lane uses Spaceship instead.
 
 ## If a run fails
 

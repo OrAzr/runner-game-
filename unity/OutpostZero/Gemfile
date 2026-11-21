@@ -1,4 +1,6 @@
 source "https://rubygems.org"
 
 # Used by .github/workflows/ios-testflight.yml on the macOS runner.
-gem "fastlane", "~> 2.227"
+# 2.241.1 removed produce's api_key option. Stay on 2.242 and create the
+# App Store record through Spaceship instead of produce.
+gem "fastlane", "2.242.0"
