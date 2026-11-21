@@ -2,6 +2,7 @@
 using System;
 using System.IO;
 using System.Linq;
+using System.Reflection;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
 using UnityEditor.iOS;
@@ -43,6 +44,7 @@ namespace OutpostZero.EditorTools
                 if (scenes.Length == 0) throw new Exception("No enabled scenes in Build Settings after OutpostSceneBuilder.BuildScene.");
                 Debug.Log("[Outpost Zero] iOS scenes: " + string.Join(", ", scenes));
                 Debug.Log("[Outpost Zero] Xcode export: " + location);
+                IncludeRuntimeShaders();
 
                 var report = UnityEditor.BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
@@ -88,6 +90,72 @@ namespace OutpostZero.EditorTools
             var team = Arg("-appleTeamId");
             if (!string.IsNullOrEmpty(team)) PlayerSettings.iOS.appleDeveloperTeamID = team;
             Debug.Log("[Outpost Zero] iOS " + BundleId + " version " + MarketingVersion + " (" + buildNumber + "), portrait, IL2CPP ARM64");
+        }
+
+        static readonly string[] RuntimeShaders =
+        {
+            "Standard",
+            "Unlit/Color",
+            "Particles/Standard Unlit",
+            "Sprites/Default",
+            "Legacy Shaders/Diffuse"
+        };
+
+        // No scene asset references these shaders, so the player stripper drops them and Shader.Find returns null.
+        static void IncludeRuntimeShaders()
+        {
+            var graphics = LoadGraphicsSettings();
+            if (graphics == null)
+            {
+                Debug.LogError("[Outpost Zero] GraphicsSettings is unavailable. Runtime shaders may be stripped.");
+                return;
+            }
+            var so = new SerializedObject(graphics);
+            var included = so.FindProperty("m_AlwaysIncludedShaders");
+            if (included == null || !included.isArray)
+            {
+                Debug.LogError("[Outpost Zero] GraphicsSettings has no m_AlwaysIncludedShaders array.");
+                return;
+            }
+            for (int n = 0; n < RuntimeShaders.Length; n++)
+            {
+                var shader = Shader.Find(RuntimeShaders[n]);
+                if (shader == null)
+                {
+                    Debug.LogWarning("[Outpost Zero] Shader not found in the editor: " + RuntimeShaders[n]);
+                    continue;
+                }
+                bool already = false;
+                for (int i = 0; i < included.arraySize; i++)
+                {
+                    var slot = included.GetArrayElementAtIndex(i);
+                    if (slot == null || slot.objectReferenceValue == null) continue;
+                    if (slot.objectReferenceValue == shader) { already = true; break; }
+                }
+                if (already) continue;
+                included.arraySize++;
+                included.GetArrayElementAtIndex(included.arraySize - 1).objectReferenceValue = shader;
+                Debug.Log("[Outpost Zero] Always included shader: " + RuntimeShaders[n]);
+            }
+            so.ApplyModifiedProperties();
+        }
+
+        static UnityEngine.Object LoadGraphicsSettings()
+        {
+            var assets = AssetDatabase.LoadAllAssetsAtPath("ProjectSettings/GraphicsSettings.asset");
+            if (assets != null)
+            {
+                for (int i = 0; i < assets.Length; i++)
+                {
+                    if (assets[i] != null && assets[i].GetType().Name == "GraphicsSettings") return assets[i];
+                }
+            }
+            var unsupported = typeof(UnityEditor.Editor).Assembly.GetType("UnityEditor.Unsupported");
+            var getter = unsupported != null
+                ? unsupported.GetMethod("GetSerializedAssetInterfaceSingleton", BindingFlags.Static | BindingFlags.Public | BindingFlags.NonPublic)
+                : null;
+            if (getter == null) return null;
+            return getter.Invoke(null, new object[] { "GraphicsSettings" }) as UnityEngine.Object;
         }
 
         const string IconAssetPath = "Assets/AppIcon/AppIcon-1024.png";

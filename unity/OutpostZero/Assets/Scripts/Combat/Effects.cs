@@ -10,13 +10,16 @@ namespace OutpostZero
 
         static Material PMat()
         {
-            if (particleMat == null)
-            {
-                var sh = Shader.Find("Universal Render Pipeline/Particles/Unlit");
-                if (sh == null) sh = Shader.Find("Particles/Standard Unlit");
-                if (sh == null) sh = Shader.Find("Sprites/Default");
-                particleMat = new Material(sh);
-            }
+            if (particleMat != null) return particleMat;
+            var sh = Prims.FindShader(
+                "Universal Render Pipeline/Particles/Unlit",
+                "Particles/Standard Unlit",
+                "Sprites/Default",
+                "Unlit/Color",
+                "Legacy Shaders/Diffuse",
+                "Standard");
+            if (sh != null) particleMat = new Material(sh);
+            else particleMat = Prims.Mat(Color.white);
             return particleMat;
         }
 
@@ -29,7 +32,8 @@ namespace OutpostZero
             main.maxParticles = 1500; main.simulationSpace = ParticleSystemSimulationSpace.World; main.playOnAwake = false;
             var em = burstPs.emission; em.rateOverTime = 0;
             var shape = burstPs.shape; shape.shapeType = ParticleSystemShapeType.Sphere; shape.radius = 0.1f;
-            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = PMat();
+            var mat = PMat();
+            if (mat != null) go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat;
             return burstPs;
         }
 
@@ -88,7 +92,8 @@ namespace OutpostZero
             var g = new Gradient(); g.SetKeys(new[] { new GradientColorKey(Color.white, 0), new GradientColorKey(new Color(0.4f, 0.4f, 0.4f), 1) },
                 new[] { new GradientAlphaKey(1, 0), new GradientAlphaKey(0, 1) });
             col.color = g;
-            go.GetComponent<ParticleSystemRenderer>().sharedMaterial = PMat();
+            var mat = PMat();
+            if (mat != null) go.GetComponent<ParticleSystemRenderer>().sharedMaterial = mat;
             return ps;
         }
     }

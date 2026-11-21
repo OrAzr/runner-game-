@@ -57,14 +57,16 @@ namespace OutpostZero
             Txt("Squad", hud.transform, "ROOK'S SQUAD", 34, Color.white, TextAnchor.MiddleLeft, new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -80), new Vector2(330, -20));
             var track = Img("Progress", hud.transform, new Color(0, 0, 0, 0.45f), new Vector2(0, 1), new Vector2(1, 1), new Vector2(340, -62), new Vector2(-30, -38));
             progressFill = Img("Fill", track.transform, Palette.Teal, Vector2.zero, new Vector2(0, 1), Vector2.zero, Vector2.zero);
-            weaponBox = Img("Weapon", hud.transform, new Color(0.91f, 0.47f, 0.17f, 0.92f), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -190), new Vector2(380, -100)).gameObject;
+            weaponBox = Img("Weapon", hud.transform, new Color(0.91f, 0.47f, 0.17f, 0.92f), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -320), new Vector2(380, -230)).gameObject;
             weaponName = Txt("Name", weaponBox.transform, "SHOTGUN", 34, new Color(0.1f, 0.1f, 0.1f), TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, new Vector2(20, 20), new Vector2(-10, 0));
             weaponFill = Img("Time", weaponBox.transform, new Color(0.1f, 0.1f, 0.1f), Vector2.zero, new Vector2(1, 0), new Vector2(20, 10), new Vector2(-20, 20));
+            weaponBox.SetActive(false);
             bossBar = Rect("Boss", hud.transform, new Vector2(0, 1), new Vector2(1, 1), new Vector2(30, -200), new Vector2(-30, -100)).gameObject;
             Txt("Title", bossBar.transform, "BRUTE BOSS", 36, Color.white, TextAnchor.UpperLeft, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             bossHpText = Txt("Hp", bossBar.transform, "", 36, Color.white, TextAnchor.UpperRight, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             var bt = Img("Track", bossBar.transform, new Color(0, 0, 0, 0.6f), Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 44));
             bossFill = Img("Fill", bt.transform, new Color(0.85f, 0.2f, 0.15f), Vector2.zero, Vector2.one, new Vector2(4, 4), new Vector2(-4, -4));
+            bossBar.SetActive(false);
             var shield = Img("ShieldButton", hud.transform, Palette.Teal, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-250, 50), new Vector2(-40, 260));
             shield.gameObject.AddComponent<Button>().onClick.AddListener(() => GameManager.I.Squad.Rook.ActivateShield());
             shieldRect = shield.rectTransform;
@@ -114,8 +116,9 @@ namespace OutpostZero
                 weaponName.text = WeaponDef.Get(sh.Current).label;
                 weaponFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(sh.PickupTimeLeft / gm.level.pickupDuration), 0);
             }
-            bossBar.SetActive(gm.Boss != null);
-            if (gm.Boss != null) { bossFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(gm.Boss.hp / gm.Boss.maxHp), 1); bossHpText.text = Mathf.Max(0, Mathf.CeilToInt(gm.Boss.hp)).ToString(); }
+            bool bossUp = gm.Boss != null && gm.Boss.Alive;
+            bossBar.SetActive(bossUp);
+            if (bossUp) { bossFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(gm.Boss.hp / gm.Boss.maxHp), 1); bossHpText.text = Mathf.Max(0, Mathf.CeilToInt(gm.Boss.hp)).ToString(); }
             var rook = gm.Squad.Rook;
             shieldText.text = rook.ShieldActive ? "SHIELD\nACTIVE" : rook.Cooldown > 0 ? $"SHIELD\n{Mathf.CeilToInt(rook.Cooldown)}s" : "SHIELD\nREADY";
             if (popupT > 0) { popupT -= Time.deltaTime; var c = popup.color; c.a = Mathf.Clamp01(popupT / 0.4f); popup.color = c; }
