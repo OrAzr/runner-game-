@@ -75,6 +75,8 @@ platform :ios do
       )
     end
 
+    install_app_store_icon(xcode_dir)
+
     ipa_dir = File.join(xcode_dir, "ipa")
     build_app(
       project: xcodeproj,
@@ -101,6 +103,24 @@ platform :ios do
       skip_waiting_for_build_processing: true
     )
   end
+end
+
+# App Store Connect rejects an upload that has no 1024 icon (altool 91111).
+# Copy the opaque icon set, including the Any Appearance 1024, into the export.
+def install_app_store_icon(xcode_dir)
+  src = File.expand_path("../Assets/AppIcon/ios", __dir__)
+  UI.user_error!("Missing iOS icon set at #{src}") unless File.directory?(src)
+
+  catalog = Dir.glob(File.join(xcode_dir, "**", "AppIcon.appiconset")).first
+  if catalog.nil?
+    catalog = File.join(xcode_dir, "Unity-iPhone", "Images.xcassets", "AppIcon.appiconset")
+    FileUtils.mkdir_p(catalog)
+  end
+
+  Dir.glob(File.join(src, "*")).each do |file|
+    FileUtils.cp(file, File.join(catalog, File.basename(file)))
+  end
+  UI.message("Installed opaque iOS app icons, including the 1024 Any Appearance icon, in #{catalog}")
 end
 
 def ensure_app_record
