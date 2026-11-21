@@ -4,6 +4,7 @@ using System.IO;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.Build.Reporting;
+using UnityEditor.iOS;
 using UnityEngine;
 
 namespace OutpostZero.EditorTools
@@ -22,6 +23,7 @@ namespace OutpostZero.EditorTools
                 AssetDatabase.Refresh();
                 OutpostSceneBuilder.BuildScene();
                 ApplyIosPlayerSettings();
+                ApplyAppIcon();
 
                 // GameCI passes the output location as -customBuildPath (buildsPath/target/buildName).
                 var location = Arg("-customBuildPath");
@@ -52,6 +54,7 @@ namespace OutpostZero.EditorTools
                 });
                 if (report.summary.result != BuildResult.Succeeded)
                     throw new Exception("iOS player build failed: " + report.summary.result + " (" + report.summary.totalErrors + " errors)");
+                InstallExportedAppIcons(location);
                 EditorApplication.Exit(0);
             }
             catch (Exception e)
@@ -85,6 +88,76 @@ namespace OutpostZero.EditorTools
             var team = Arg("-appleTeamId");
             if (!string.IsNullOrEmpty(team)) PlayerSettings.iOS.appleDeveloperTeamID = team;
             Debug.Log("[Outpost Zero] iOS " + BundleId + " version " + MarketingVersion + " (" + buildNumber + "), portrait, IL2CPP ARM64");
+        }
+
+        const string IconAssetPath = "Assets/AppIcon/AppIcon-1024.png";
+
+        static void ApplyAppIcon()
+        {
+            var importer = AssetImporter.GetAtPath(IconAssetPath) as TextureImporter;
+            if (importer == null) throw new Exception("App icon missing at " + IconAssetPath);
+            importer.textureType = TextureImporterType.Default;
+            importer.npotScale = TextureImporterNPOTScale.None;
+            importer.mipmapEnabled = false;
+            importer.alphaSource = TextureImporterAlphaSource.None;
+            importer.alphaIsTransparency = false;
+            importer.isReadable = true;
+            importer.textureCompression = TextureImporterCompression.Uncompressed;
+            importer.maxTextureSize = 2048;
+            importer.SaveAndReimport();
+
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(IconAssetPath);
+            if (tex == null) throw new Exception("Could not load " + IconAssetPath);
+
+            var defaultSizes = PlayerSettings.GetIconSizesForTargetGroup(BuildTargetGroup.Unknown);
+            if (defaultSizes != null && defaultSizes.Length > 0)
+            {
+                var defaults = new Texture2D[defaultSizes.Length];
+                for (var i = 0; i < defaults.Length; i++) defaults[i] = tex;
+                PlayerSettings.SetIconsForTargetGroup(BuildTargetGroup.Unknown, defaults);
+            }
+            foreach (var kind in new[] { IconKind.Application, IconKind.Settings, IconKind.Notification, IconKind.Spotlight, IconKind.Store })
+                SetLegacyIcons(BuildTargetGroup.iOS, tex, kind);
+
+            foreach (var kind in new PlatformIconKind[]
+            {
+                iOSPlatformIconKind.Application,
+                iOSPlatformIconKind.Spotlight,
+                iOSPlatformIconKind.Settings,
+                iOSPlatformIconKind.Notification,
+                iOSPlatformIconKind.Marketing
+            })
+            {
+                var icons = PlayerSettings.GetPlatformIcons(BuildTargetGroup.iOS, kind);
+                if (icons == null || icons.Length == 0) continue;
+                foreach (var icon in icons) icon.SetTexture(tex);
+                PlayerSettings.SetPlatformIcons(BuildTargetGroup.iOS, kind, icons);
+            }
+            Debug.Log("[Outpost Zero] Assigned opaque 1024 app icon to iOS Player Settings, including the marketing icon");
+        }
+
+        static void SetLegacyIcons(BuildTargetGroup group, Texture2D tex, IconKind kind)
+        {
+            var sizes = PlayerSettings.GetIconSizesForTargetGroup(group, kind);
+            if (sizes == null || sizes.Length == 0) return;
+            var icons = new Texture2D[sizes.Length];
+            for (var i = 0; i < icons.Length; i++) icons[i] = tex;
+            PlayerSettings.SetIconsForTargetGroup(group, icons, kind);
+        }
+
+        // Unity 2022 leaves the Xcode "Any Appearance" 1024 well empty. App Store Connect rejects that (altool 91111).
+        static void InstallExportedAppIcons(string xcodeRoot)
+        {
+            var src = Path.Combine(Application.dataPath, "AppIcon/ios");
+            if (!Directory.Exists(src)) throw new Exception("iOS icon set missing at " + src);
+            var catalogs = Directory.GetDirectories(xcodeRoot, "AppIcon.appiconset", SearchOption.AllDirectories);
+            var catalog = catalogs.Length > 0
+                ? catalogs[0]
+                : Path.Combine(xcodeRoot, "Unity-iPhone", "Images.xcassets", "AppIcon.appiconset");
+            Directory.CreateDirectory(catalog);
+            foreach (var file in Directory.GetFiles(src))
+                File.Copy(file, Path.Combine(catalog, Path.GetFileName(file)), true);
+            Debug.Log("[Outpost Zero] Wrote iOS app icon catalog at " + catalog);
         }
 
         static string Arg(string name)
