@@ -7,19 +7,57 @@ namespace OutpostZero
     public static class Prims
     {
         static readonly Dictionary<Color, Material> cache = new Dictionary<Color, Material>();
-        static Shader litShader;
+        static Shader litShader, unlitShader, errorShader;
+        static Material builtinFallback;
+        static bool missingShaderLogged;
+
+        /// <summary>First shader that exists. Never returns a shader that would make new Material throw; logs once if every name misses.</summary>
+        public static Shader FindShader(params string[] names)
+        {
+            if (names != null)
+            {
+                for (int i = 0; i < names.Length; i++)
+                {
+                    if (string.IsNullOrEmpty(names[i])) continue;
+                    var found = Shader.Find(names[i]);
+                    if (found != null) return found;
+                }
+            }
+            if (!missingShaderLogged)
+            {
+                missingShaderLogged = true;
+                Debug.LogError("[Outpost Zero] Shader.Find missed every requested shader. Using Hidden/InternalErrorShader.");
+            }
+            if (errorShader == null) errorShader = Shader.Find("Hidden/InternalErrorShader");
+            return errorShader;
+        }
 
         static Shader Lit()
         {
             if (litShader == null)
-                { litShader = Shader.Find("Universal Render Pipeline/Lit"); if (litShader == null) litShader = Shader.Find("Standard"); }
+                litShader = FindShader("Universal Render Pipeline/Lit", "Standard", "Legacy Shaders/Diffuse", "Unlit/Color", "Sprites/Default");
             return litShader;
+        }
+
+        static Material MaterialFor(Shader shader, Color c)
+        {
+            if (shader != null) return new Material(shader) { color = c };
+            if (builtinFallback == null)
+            {
+                var temp = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                var src = temp.GetComponent<Renderer>().sharedMaterial;
+                Object.Destroy(temp);
+                if (src != null) builtinFallback = new Material(src);
+            }
+            if (builtinFallback == null) return null;
+            return new Material(builtinFallback) { color = c };
         }
 
         public static Material Mat(Color c, bool unique = false)
         {
-            if (!unique && cache.TryGetValue(c, out var m)) return m;
-            m = new Material(Lit()) { color = c };
+            if (!unique && cache.TryGetValue(c, out var m) && m != null) return m;
+            m = MaterialFor(Lit(), c);
+            if (m == null) return builtinFallback;
             if (c.a < 1f) MakeTransparent(m);
             if (!unique) cache[c] = m;
             return m;
@@ -27,9 +65,9 @@ namespace OutpostZero
 
         public static Material Unlit(Color c)
         {
-            var sh = Shader.Find("Universal Render Pipeline/Unlit"); if (sh == null) sh = Shader.Find("Unlit/Color");
-            var m = new Material(sh) { color = c };
-            return m;
+            if (unlitShader == null)
+                unlitShader = FindShader("Universal Render Pipeline/Unlit", "Unlit/Color", "Sprites/Default", "Legacy Shaders/Diffuse", "Standard");
+            return MaterialFor(unlitShader, c) ?? builtinFallback;
         }
 
         static void MakeTransparent(Material m)
