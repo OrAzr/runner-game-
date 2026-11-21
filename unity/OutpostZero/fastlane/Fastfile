@@ -15,6 +15,8 @@ platform :ios do
     UI.user_error!("Xcode project not found at #{xcodeproj}") unless File.directory?(xcodeproj)
 
     setup_ci if ENV["CI"]
+    # setup_ci turns match read-only. The first run must be allowed to create the cert.
+    ENV["MATCH_READONLY"] = "false"
 
     key_path = ENV.fetch("APP_STORE_CONNECT_KEY_PATH")
     api_key = app_store_connect_api_key(
@@ -25,17 +27,16 @@ platform :ios do
       in_house: false
     )
 
-    # Creates the bundle id and the App Store Connect app record when they do not exist yet.
-    produce(
-      app_identifier: BUNDLE_ID,
-      app_name: APP_NAME,
-      sku: "outpostzero-game",
-      language: "en-US",
-      team_id: ENV.fetch("APPLE_TEAM_ID"),
-      api_key: api_key,
-      skip_itc: false,
-      skip_devcenter: false
+    # produce 2.241.1+ cannot take an API key. Register the bundle id and the
+    # App Store Connect app with the key through Spaceship instead.
+    Spaceship::ConnectAPI.token = Spaceship::ConnectAPI::Token.create(
+      key_id: api_key[:key_id],
+      issuer_id: api_key[:issuer_id],
+      key: api_key[:key],
+      duration: api_key[:duration],
+      in_house: api_key[:in_house]
     )
+    ensure_app_record
 
     token = ENV.fetch("MATCH_GIT_TOKEN")
     ENV["MATCH_GIT_BASIC_AUTHORIZATION"] = Base64.strict_encode64("x-access-token:#{token}")
@@ -99,5 +100,53 @@ platform :ios do
       ipa: File.join(ipa_dir, "OutpostZero.ipa"),
       skip_waiting_for_build_processing: true
     )
+  end
+end
+
+def ensure_app_record
+  bundle = Spaceship::ConnectAPI::BundleId.find(BUNDLE_ID)
+  if bundle.nil?
+    UI.message("Registering bundle id #{BUNDLE_ID}")
+    bundle = Spaceship::ConnectAPI::BundleId.create(
+      name: APP_NAME,
+      platform: "IOS",
+      identifier: BUNDLE_ID
+    )
+  else
+    UI.message("Bundle id #{BUNDLE_ID} already exists")
+  end
+
+  if Spaceship::ConnectAPI::App.find(BUNDLE_ID)
+    UI.message("App Store Connect app already exists")
+    return
+  end
+
+  UI.message("Creating App Store Connect app #{APP_NAME}")
+  begin
+    Spaceship::ConnectAPI::App.create(
+      name: APP_NAME,
+      sku: "outpostzero-game",
+      primary_locale: "en-US",
+      bundle_id: bundle.id,
+      platforms: ["IOS"],
+      version_string: "0.2.0"
+    )
+  rescue StandardError => e
+    message = e.message.to_s
+    if message.match?(/companyName/i)
+      Spaceship::ConnectAPI::App.create(
+        name: APP_NAME,
+        sku: "outpostzero-game",
+        primary_locale: "en-US",
+        bundle_id: bundle.id,
+        platforms: ["IOS"],
+        version_string: "0.2.0",
+        company_name: APP_NAME
+      )
+    elsif message.match?(/name.*(taken|already)|already.*(used|exists)/i)
+      UI.user_error!("The App Store name '#{APP_NAME}' is already taken. Change APP_NAME in unity/OutpostZero/fastlane/Fastfile and re-run. The bundle id stays #{BUNDLE_ID}. Apple said: #{message}")
+    else
+      raise
+    end
   end
 end
