@@ -44,7 +44,7 @@ namespace OutpostZero.EditorTools
                 Debug.Log("[Outpost Zero] iOS scenes: " + string.Join(", ", scenes));
                 Debug.Log("[Outpost Zero] Xcode export: " + location);
 
-                var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
+                var report = UnityEditor.BuildPipeline.BuildPlayer(new BuildPlayerOptions
                 {
                     scenes = scenes,
                     locationPathName = location,
