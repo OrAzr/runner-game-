@@ -25,7 +25,7 @@ namespace OutpostZero
 
         public void ShowWeapon(WeaponType type) { if (weapon != null) weapon.Show(type); }
 
-        public void Tick(Vector3 slot, bool running, float dt, float lean)
+        public void Tick(Vector3 slot, bool running, float dt, float lean, float hw)
         {
             // SmoothDamp (critically damped, frame-rate independent) instead of a per-soldier-k Lerp: the old
             // Lerp plus an independent per-soldier sine bob/tilt made the whole trailing group read as a
@@ -35,6 +35,11 @@ namespace OutpostZero
             var p = transform.position;
             Vector3 target = new Vector3(slot.x, 0f, slot.z);
             p = Vector3.SmoothDamp(p, target, ref smoothVel, smoothTime);
+            // SmoothDamp can overshoot its target when the target itself jumps quickly (a hard steering
+            // reversal snaps every column's clamped slot.x sideways in one frame), which let the leftmost/
+            // rightmost column punch through the road barriers; re-clamping the actual smoothed position
+            // closes that gap regardless of how big the overshoot is.
+            p.x = Mathf.Clamp(p.x, -hw, hw);
             float bob = running ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
             p.y = bob;
             transform.position = p;

@@ -28,8 +28,9 @@ namespace OutpostZero
             if (down && !GameUI.PointerOverButton(px)) { dragging = true; startPointerX = px; startTarget = TargetX; }
             if (!held) dragging = false;
             // Margin scales with Rook's visual size (RookAvatar.GameplayScale) so the steer target can't drag
-            // him wider than his own on-screen body at the edge of the road.
-            float edgeMargin = 0.6f * RookAvatar.GameplayScale;
+            // him wider than his own on-screen body (including the gun-arm reach of the Run_and_Shoot clip -
+            // see SquadController's matching edgeMargin) at the edge of the road.
+            float edgeMargin = 1f * RookAvatar.GameplayScale;
             if (dragging)
             {
                 float dx = (px - startPointerX) / Screen.width;

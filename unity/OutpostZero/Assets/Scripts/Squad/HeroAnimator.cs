@@ -25,7 +25,8 @@ namespace OutpostZero
         float lockUntil;
 
         Transform hips;
-        float hipsBaseY;
+        Vector3 hipsLockedXZ;
+        float hipsSmoothedY;
 
         /// <summary>Loads every clip under Resources/Models/Hero/rook and wires one mixer input per clip.
         /// Returns false (nothing built) if the resource folder has no clips, so the caller can skip this
@@ -57,16 +58,22 @@ namespace OutpostZero
             return true;
         }
 
-        /// <summary>The Mixamo clips bake running's footstep bob straight into mixamorig:Hips' Y translation
-        /// (not into a root node we could strip at import), so without this the whole rigged body visibly
-        /// hops with every stride on top of whatever HeroRook/SquadController add on their own. Locking Hips'
-        /// local Y to its value right after Build() (effectively bind pose, before any clip has been evaluated)
-        /// removes that bob every frame while leaving X/Z and all rotations - so leg/arm/torso motion - untouched.
-        /// Runtime-only and independent of import settings, so it's safe to reason about without opening Unity.</summary>
+        /// <summary>The Mixamo running clips also bake forward travel straight into mixamorig:Hips' local X/Z
+        /// (there's no separate root node to strip at import time, though HeroModelImport now extracts it there
+        /// too - see that file), so the rig would otherwise slide forward across every loop and snap back the
+        /// instant the clip wraps to time 0, on top of SquadController's own code-driven position. Pinning
+        /// Hips' local X/Z to its value right after Build() (bind pose, before any clip has been evaluated)
+        /// removes that slide while leaving every rotation - so leg/arm/torso motion - untouched. Y is only
+        /// damped (not hard-locked): PR #13 pinned Y to this same bind sample and that fought the Run_and_Shoot
+        /// clip's own (lower, crouched-run) hip height, driving the knees/ankles through the floor as a
+        /// backward-leaning squat. Smoothing towards the clip's own Y keeps the stride looking grounded instead.</summary>
         public void LockHipsHeight(Transform hipsBone)
         {
             hips = hipsBone;
-            if (hips != null) hipsBaseY = hips.localPosition.y;
+            if (hips == null) return;
+            var p = hips.localPosition;
+            hipsLockedXZ = new Vector3(p.x, 0f, p.z);
+            hipsSmoothedY = p.y;
         }
 
         int FindIndex(string contains)
@@ -121,7 +128,8 @@ namespace OutpostZero
         {
             if (hips == null) return;
             var p = hips.localPosition;
-            hips.localPosition = new Vector3(p.x, hipsBaseY, p.z);
+            hipsSmoothedY = Mathf.Lerp(hipsSmoothedY, p.y, Mathf.Min(1f, Time.deltaTime * 6f));
+            hips.localPosition = new Vector3(hipsLockedXZ.x, hipsSmoothedY, hipsLockedXZ.z);
         }
 
         void OnDestroy()

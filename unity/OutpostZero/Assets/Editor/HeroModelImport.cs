@@ -11,6 +11,7 @@ namespace OutpostZero.EditorTools
     public class HeroModelImport : AssetPostprocessor
     {
         static readonly string[] LoopingClips = { "Idle", "Walking", "Running", "Run_and_Shoot" };
+        const string HipsBoneName = "mixamorig:Hips";
 
         void OnPreprocessModel()
         {
@@ -36,6 +37,19 @@ namespace OutpostZero.EditorTools
                     break;
                 }
                 clips[i].loopTime = loop;
+
+                // The running takes bake forward travel straight into mixamorig:Hips' local X/Z (Mixamo has no
+                // separate root bone to strip), so without this the rig visibly slides forward over every loop
+                // and snaps back the instant it wraps - on top of whatever SquadController's own code-driven
+                // position already does. Extracting X/Z as root motion (instead of baking it into the pose) and
+                // then never applying it (RookAvatar sets animator.applyRootMotion = false) discards that travel
+                // entirely; HeroAnimator.LockHipsHeight is a runtime-only backstop for the same thing so this
+                // still holds even before a reimport. Y is left baked into the pose (untouched) - locking it to
+                // a single frame here would fight each clip's own hip height the same way the runtime hard-lock
+                // used to.
+                clips[i].motionNodeName = HipsBoneName;
+                clips[i].lockRootPositionXZ = true;
+                clips[i].keepOriginalPositionXZ = false;
             }
             importer.clipAnimations = clips;
         }
