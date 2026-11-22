@@ -393,7 +393,7 @@ namespace OutpostZero
         void BuildTuning(Transform root)
         {
             tuning = Img("Tuning", root, new Color(0.04f, 0.06f, 0.07f, 0.95f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
-            Txt("Title", tuning.transform, "TUNING", 56, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(0, -120), new Vector2(0, -30));
+            Txt("Title", tuning.transform, "TUNING", 56, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -120), new Vector2(0, -30));
             var back = Img("Back", tuning.transform, Palette.TealDark, new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -120), new Vector2(190, -30));
             back.gameObject.AddComponent<Button>().onClick.AddListener(HideTuning);
             Txt("Label", back.transform, "BACK", 32, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -447,8 +447,10 @@ namespace OutpostZero
             const float h = 104f;
             float top = -y, bottom = -(y + h);
             var rowRt = Rect(spec.Label, tuningContent, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, bottom), new Vector2(0, top));
-            Txt("Label", rowRt, spec.Label, 28, Color.white, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, new Vector2(24, 0), new Vector2(-440, 0));
-            var valueText = Txt("Value", rowRt, FormatValue(spec), 28, new Color(1f, 1f, 1f, 0.85f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(-420, 0), new Vector2(-280, 0));
+            Txt("Label", rowRt, spec.Label, 28, Color.white, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, new Vector2(24, 0), new Vector2(-455, 0));
+            // Value column sits between the label and the -/+ buttons, anchored to the row's right edge.
+            Img("ValueBg", rowRt, new Color(1f, 1f, 1f, 0.08f), new Vector2(1, 0.5f), new Vector2(1, 0.5f), new Vector2(-440, -36), new Vector2(-285, 36));
+            var valueText = Txt("Value", rowRt, FormatValue(spec), 34, Palette.Orange, TextAnchor.MiddleCenter, new Vector2(1, 0), new Vector2(1, 1), new Vector2(-440, 0), new Vector2(-285, 0));
             EdgeBtn("Minus", rowRt, "-", Palette.TealDark, new Vector2(1, 0.5f), new Vector2(-220, 0), new Vector2(100, 80), () => AdjustTune(spec, -1, valueText));
             EdgeBtn("Plus", rowRt, "+", Palette.Teal, new Vector2(1, 0.5f), new Vector2(-100, 0), new Vector2(100, 80), () => AdjustTune(spec, 1, valueText));
             tuneRows.Add((spec, valueText));
