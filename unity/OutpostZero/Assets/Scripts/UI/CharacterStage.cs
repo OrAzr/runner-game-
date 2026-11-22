@@ -65,6 +65,7 @@ namespace OutpostZero
             holder.transform.SetParent(spin, false);
             RookAvatar.Build(holder.transform, locked);
             Place();
+            FaceBackdrop();
         }
 
         public void Hide() { gameObject.SetActive(false); }
@@ -83,6 +84,7 @@ namespace OutpostZero
             }
             if (spin != null) spin.localRotation = Quaternion.Euler(0f, yaw, 0f);
             Place();
+            FaceBackdrop();
         }
 
         void Place()
@@ -92,6 +94,10 @@ namespace OutpostZero
             Vector3 focus = cam.transform.position + cam.transform.forward * 7.2f;
             transform.position = focus + Vector3.down * 0.85f;
             transform.rotation = Quaternion.identity;
+        }
+
+        void FaceBackdrop()
+        {
             Face(backdrop, 3.2f, 48f, 64f, 1.3f);
             Face(rim, 1.35f, 4.2f, 5.4f, 1.45f);
         }
@@ -101,11 +107,10 @@ namespace OutpostZero
             if (quad == null) return;
             var cam = Camera.main;
             if (cam == null) return;
-            Vector3 away = -cam.transform.forward;
-            quad.position = transform.position + away * behind + Vector3.up * lift;
-            Vector3 toCam = cam.transform.position - quad.position;
-            if (toCam.sqrMagnitude < 0.001f) return;
-            quad.rotation = Quaternion.LookRotation(toCam, cam.transform.up);
+            quad.position = transform.position + cam.transform.forward * behind + Vector3.up * lift;
+            Vector3 fromCam = quad.position - cam.transform.position;
+            if (fromCam.sqrMagnitude < 0.001f) return;
+            quad.rotation = Quaternion.LookRotation(fromCam, cam.transform.up);
             quad.localScale = new Vector3(width, height, 1f);
         }
     }
