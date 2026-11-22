@@ -38,16 +38,21 @@ namespace OutpostZero
         void Start()
         {
             cam = Camera.main ? Camera.main.GetComponent<CameraFollow>() : null;
+            LevelNumber = Mathf.Max(1, Tuning.Current.startingLevel);
             BuildRun();
             if (autoStart) { GameUI.I?.ShowMenu(); StartRun(); }
             else GameUI.I?.ShowSelect();
         }
+
+        /// <summary>Used by the tuning screen's level-select field; clamped the same way LevelNumber already is.</summary>
+        public void SetLevelNumber(int n) { LevelNumber = Mathf.Max(1, n); }
 
         public void BuildRun()
         {
             if (runRoot) Destroy(runRoot);
             targets.Clear(); Kills = 0; Boss = null;
             level = Levels.Build(LevelNumber);
+            Tuning.Current.Apply(level);
             runRoot = new GameObject("Run");
             LevelBuilder.Build(level, runRoot.transform);
             var squadGo = new GameObject("Squad"); squadGo.transform.SetParent(runRoot.transform);

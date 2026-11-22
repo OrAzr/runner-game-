@@ -34,13 +34,21 @@ namespace OutpostZero
             if (Current != WeaponType.AssaultRifle) { PickupTimeLeft -= dt; if (PickupTimeLeft <= 0) Current = WeaponType.AssaultRifle; }
             ApplyLook();
             var w = WeaponDef.Get(Current);
-            int shooters = Mathf.Min(squad.Count, SquadController.MaxVisible);
+            var tune = Tuning.Current;
+            int vis = Mathf.Max(1, Mathf.Min(squad.Count, SquadController.MaxVisible));
+            int totalVisible = Mathf.Min(squad.Count, SquadController.MaxVisible);
+            int soldierShooters = Mathf.RoundToInt(Mathf.Max(0, totalVisible - 1) * Mathf.Clamp01(tune.soldierShootFraction));
+            // Rook and soldiers get independent fire-rate multipliers, but mirror the original "shooters"
+            // count exactly when both are 1 (the default), including the totalVisible == 0 edge case.
+            float effectiveShooters = totalVisible <= 0 ? 0f
+                : Mathf.Max(0f, tune.rookFireRateMult) + soldierShooters * Mathf.Max(0f, tune.soldierFireRateMult);
+            float damage = w.damage * Mathf.Max(0f, tune.damageMult);
 
             if (Current == WeaponType.Flamethrower)
             {
                 SetFlame(true);
                 if (flameFx != null) flameFx.Tick(w.range);
-                float R = w.range + squad.Radius * 0.5f, dps = w.dps * (4 + shooters);
+                float R = w.range + squad.Radius * 0.5f, dps = w.dps * Mathf.Max(0f, tune.damageMult) * (4 + effectiveShooters);
                 var targets = gm.Targets; var sp = transform.position;
                 emberT += dt;
                 bool toasted = false;
@@ -60,10 +68,11 @@ namespace OutpostZero
                 return;
             }
             SetFlame(false);
-            shotAcc += shooters * w.rate * dt;
+            float rate = effectiveShooters * w.rate;
+            if (tune.maxShotsPerSecond > 0f) rate = Mathf.Min(rate, tune.maxShotsPerSecond);
+            shotAcc += rate * dt;
             int shots = Mathf.FloorToInt(shotAcc); shotAcc -= shots;
             if (shots > 0) AudioManager.I?.Play(w.sfx, Current == WeaponType.AssaultRifle ? 0.46f : 0.62f, Random.Range(0.92f, 1.12f), Current == WeaponType.AssaultRifle ? 0.055f : 0.12f);
-            int vis = Mathf.Max(1, Mathf.Min(squad.Count, SquadController.MaxVisible));
             bool shotgun = Current == WeaponType.Shotgun;
             while (shots-- > 0)
             {
@@ -75,7 +84,7 @@ namespace OutpostZero
                 for (int p = 0; p < w.pellets; p++)
                 {
                     float a = Random.Range(-w.spread, w.spread);
-                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, w.damage, w.tracer, w.gate, shotgun);
+                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, damage, w.tracer, w.gate, shotgun);
                 }
             }
         }

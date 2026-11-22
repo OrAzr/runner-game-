@@ -1,3 +1,5 @@
+using System;
+using System.Collections.Generic;
 using UnityEngine;
 using UnityEngine.UI;
 
@@ -22,6 +24,13 @@ namespace OutpostZero
         float popupT, popupPulse;
         Font font;
 
+        // ---------- tuning screen ----------
+        GameObject tuning;
+        RectTransform tuningContent;
+        Text toastText;
+        float toastT;
+        readonly List<(TuneSpec spec, Text text)> tuneRows = new List<(TuneSpec, Text)>();
+
         void Awake() { I = this; font = Prims.UIFont(); Build(); }
 
         // ---------- tiny builders ----------
@@ -44,6 +53,15 @@ namespace OutpostZero
             var img = Img(n, p, c, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), center - size / 2, center + size / 2);
             var b = img.gameObject.AddComponent<Button>(); b.onClick.AddListener(onClick);
             Txt("Label", img.transform, label, 44, new Color(0.1f, 0.1f, 0.1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            return b;
+        }
+        /// <summary>Like Btn() but anchored at an arbitrary point (e.g. (1, 0.5) for a right-edge-relative
+        /// button) instead of always the parent's center - used by rows whose parent width isn't fixed.</summary>
+        Button EdgeBtn(string n, Transform p, string label, Color c, Vector2 anchor, Vector2 center, Vector2 size, UnityEngine.Events.UnityAction onClick)
+        {
+            var img = Img(n, p, c, anchor, anchor, center - size / 2, center + size / 2);
+            var b = img.gameObject.AddComponent<Button>(); b.onClick.AddListener(onClick);
+            Txt("Label", img.transform, label, 40, new Color(0.1f, 0.1f, 0.1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             return b;
         }
 
@@ -89,6 +107,7 @@ namespace OutpostZero
             title.supportRichText = true;
             Txt("Sub", menu.transform, "Shoot the red numbered gates until\nthey turn blue, then run through them.\nGrab crates and take down the boss.", 34, new Color(1, 1, 1, 0.85f), TextAnchor.MiddleCenter, new Vector2(0, 0.42f), new Vector2(1, 0.58f), Vector2.zero, Vector2.zero);
             Btn("Play", menu.transform, "PLAY", Palette.Orange, new Vector2(0, -150), new Vector2(420, 130), () => GameManager.I.StartRun());
+            Btn("Tune", menu.transform, "TUNE", Palette.TealDark, new Vector2(0, -300), new Vector2(300, 100), ShowTuning);
 
             // End
             end = Img("End", root, new Color(0.04f, 0.06f, 0.07f, 0.75f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
@@ -98,6 +117,7 @@ namespace OutpostZero
             end.SetActive(false);
 
             BuildSelect(root);
+            BuildTuning(root);
             menu.SetActive(false);
         }
 
@@ -146,6 +166,7 @@ namespace OutpostZero
             if (hud != null) hud.SetActive(false);
             if (menu != null) menu.SetActive(false);
             if (end != null) end.SetActive(false);
+            if (tuning != null) tuning.SetActive(false);
             if (select != null) select.SetActive(true);
             heroIndex = CharacterStage.SavedIndex();
             ApplyHero(heroIndex);
@@ -191,6 +212,7 @@ namespace OutpostZero
         {
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
+            if (tuning != null) tuning.SetActive(false);
             if (hud != null) hud.SetActive(true);
             menu.SetActive(true); end.SetActive(false);
         }
@@ -198,6 +220,7 @@ namespace OutpostZero
         {
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
+            if (tuning != null) tuning.SetActive(false);
             if (hud != null) hud.SetActive(true);
             menu.SetActive(false); end.SetActive(false);
         }
@@ -220,6 +243,12 @@ namespace OutpostZero
 
         void Update()
         {
+            if (toastT > 0f && toastText != null)
+            {
+                toastT -= Time.deltaTime;
+                var tc = toastText.color; tc.a = Mathf.Clamp01(toastT / 0.3f); toastText.color = tc;
+            }
+            if (tuning != null && tuning.activeSelf) return;
             if (select != null && select.activeSelf) { TickSelect(); return; }
             var gm = GameManager.I; if (gm == null || gm.Squad == null) return;
             if (levelText != null) levelText.text = "LEVEL " + gm.LevelNumber;
@@ -287,6 +316,208 @@ namespace OutpostZero
             if (shieldRect == null) return false;
             Vector2 pos = Input.touchCount > 0 ? Input.GetTouch(0).position : (Vector2)Input.mousePosition;
             return RectTransformUtility.RectangleContainsScreenPoint(shieldRect, pos, null);
+        }
+
+        // ================= Tuning screen =================
+        enum TuneKind { Mult, Percent, Int, CapOrOff }
+
+        class TuneSpec
+        {
+            public string Label;
+            public Func<float> Get;
+            public Action<float> Set;
+            public float Step, Min, Max;
+            public TuneKind Kind;
+        }
+
+        static TuneSpec Mult(string label, Func<float> get, Action<float> set, float step, float min, float max) =>
+            new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = min, Max = max, Kind = TuneKind.Mult };
+        static TuneSpec Pct(string label, Func<float> get, Action<float> set, float step) =>
+            new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = 0f, Max = 1f, Kind = TuneKind.Percent };
+        static TuneSpec IntSpec(string label, Func<float> get, Action<float> set, float step, float min, float max) =>
+            new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = min, Max = max, Kind = TuneKind.Int };
+        static TuneSpec CapOrOff(string label, Func<float> get, Action<float> set, float step, float max) =>
+            new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = 0f, Max = max, Kind = TuneKind.CapOrOff };
+
+        // Get/Set always go through Tuning.Current (never a cached local) so rows stay correct after
+        // RESET/PASTE swap in a brand new TuningSettings instance underneath them.
+        static (string, TuneSpec[])[] Sections() => new (string, TuneSpec[])[]
+        {
+            ("WEAPONS", new[] {
+                Mult("Rook fire rate", () => Tuning.Current.rookFireRateMult, v => Tuning.Current.rookFireRateMult = v, 0.1f, 0f, 5f),
+                Mult("Soldier fire rate", () => Tuning.Current.soldierFireRateMult, v => Tuning.Current.soldierFireRateMult = v, 0.1f, 0f, 5f),
+                Mult("Damage per hit", () => Tuning.Current.damageMult, v => Tuning.Current.damageMult = v, 0.1f, 0f, 5f),
+                CapOrOff("Max shots/sec", () => Tuning.Current.maxShotsPerSecond, v => Tuning.Current.maxShotsPerSecond = v, 5f, 500f),
+                Pct("Soldiers that shoot", () => Tuning.Current.soldierShootFraction, v => Tuning.Current.soldierShootFraction = v, 0.05f),
+            }),
+            ("ZOMBIES", new[] {
+                Mult("Zombie count", () => Tuning.Current.zombieCountMult, v => Tuning.Current.zombieCountMult = v, 0.1f, 0f, 5f),
+                IntSpec("Extra zombie waves", () => Tuning.Current.extraZombieWaves, v => Tuning.Current.extraZombieWaves = Mathf.RoundToInt(v), 1f, 0f, 20f),
+                Mult("Zombie HP", () => Tuning.Current.zombieHpMult, v => Tuning.Current.zombieHpMult = v, 0.1f, 0f, 10f),
+                Mult("Zombie speed", () => Tuning.Current.zombieSpeedMult, v => Tuning.Current.zombieSpeedMult = v, 0.05f, 0.2f, 5f),
+                Mult("Zombie touch damage", () => Tuning.Current.zombieContactDamageMult, v => Tuning.Current.zombieContactDamageMult = v, 0.25f, 0f, 10f),
+                Pct("Waves scale w/ squad", () => Tuning.Current.waveSquadScale, v => Tuning.Current.waveSquadScale = v, 0.05f),
+            }),
+            ("GATES", new[] {
+                Mult("Positive gate value", () => Tuning.Current.positiveGateMult, v => Tuning.Current.positiveGateMult = v, 0.1f, 0f, 5f),
+                Mult("Multiplier gate factor", () => Tuning.Current.multiplierGateFactorMult, v => Tuning.Current.multiplierGateFactorMult = v, 0.1f, 0f, 5f),
+                Pct("Bonus to negative chance", () => Tuning.Current.negativeGateChance, v => Tuning.Current.negativeGateChance = v, 0.05f),
+                Mult("Negative gate value", () => Tuning.Current.negativeGateMult, v => Tuning.Current.negativeGateMult = v, 0.1f, 0f, 5f),
+                Mult("Counter gate depth", () => Tuning.Current.counterGateDepthMult, v => Tuning.Current.counterGateDepthMult = v, 0.1f, 0f, 5f),
+            }),
+            ("SQUAD", new[] {
+                Mult("Squad cap", () => Tuning.Current.squadCapMult, v => Tuning.Current.squadCapMult = v, 0.1f, 0.2f, 5f),
+                IntSpec("Starting squad size", () => Tuning.Current.startingSquadSize, v => Tuning.Current.startingSquadSize = Mathf.RoundToInt(v), 1f, 1f, 80f),
+            }),
+            ("BOSS", new[] {
+                Mult("Boss HP", () => Tuning.Current.bossHpMult, v => Tuning.Current.bossHpMult = v, 0.1f, 0.1f, 10f),
+                Mult("Boss speed", () => Tuning.Current.bossSpeedMult, v => Tuning.Current.bossSpeedMult = v, 0.1f, 0.1f, 5f),
+            }),
+            ("PROGRESSION", new[] {
+                IntSpec("Starting level", () => Tuning.Current.startingLevel, v => Tuning.Current.startingLevel = Mathf.RoundToInt(v), 1f, 1f, 200f),
+            }),
+        };
+
+        static string FormatValue(TuneSpec s)
+        {
+            float v = s.Get();
+            switch (s.Kind)
+            {
+                case TuneKind.Percent: return Mathf.RoundToInt(v * 100f) + "%";
+                case TuneKind.Int: return Mathf.RoundToInt(v).ToString();
+                case TuneKind.CapOrOff: return v <= 0f ? "OFF" : Mathf.RoundToInt(v).ToString();
+                default: return v.ToString("0.00") + "x";
+            }
+        }
+
+        void BuildTuning(Transform root)
+        {
+            tuning = Img("Tuning", root, new Color(0.04f, 0.06f, 0.07f, 0.95f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
+            Txt("Title", tuning.transform, "TUNING", 56, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(0, -120), new Vector2(0, -30));
+            var back = Img("Back", tuning.transform, Palette.TealDark, new Vector2(0, 1), new Vector2(0, 1), new Vector2(24, -120), new Vector2(190, -30));
+            back.gameObject.AddComponent<Button>().onClick.AddListener(HideTuning);
+            Txt("Label", back.transform, "BACK", 32, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+
+            var viewportImg = Img("Viewport", tuning.transform, new Color(0, 0, 0, 0.001f), Vector2.zero, Vector2.one, new Vector2(20, 170), new Vector2(-20, -150));
+            var viewportGo = viewportImg.gameObject;
+            viewportGo.AddComponent<RectMask2D>();
+            var scrollRect = viewportGo.AddComponent<ScrollRect>();
+
+            var contentGo = new GameObject("Content", typeof(RectTransform));
+            contentGo.transform.SetParent(viewportGo.transform, false);
+            tuningContent = (RectTransform)contentGo.transform;
+            tuningContent.anchorMin = new Vector2(0, 1); tuningContent.anchorMax = new Vector2(1, 1);
+            tuningContent.pivot = new Vector2(0.5f, 1f);
+            tuningContent.anchoredPosition = Vector2.zero;
+            tuningContent.sizeDelta = Vector2.zero;
+
+            scrollRect.viewport = (RectTransform)viewportGo.transform;
+            scrollRect.content = tuningContent;
+            scrollRect.horizontal = false; scrollRect.vertical = true;
+            scrollRect.movementType = ScrollRect.MovementType.Clamped;
+
+            BuildTuneRows();
+            BuildTuningButtons();
+            toastText = Txt("Toast", tuning.transform, "", 34, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(0, 140), new Vector2(0, 170));
+            var toastC = toastText.color; toastC.a = 0f; toastText.color = toastC;
+            tuning.SetActive(false);
+        }
+
+        void BuildTuneRows()
+        {
+            float y = 0f;
+            foreach (var (header, specs) in Sections())
+            {
+                AddTuneHeader(header, ref y);
+                foreach (var spec in specs) AddTuneRow(spec, ref y);
+            }
+            tuningContent.sizeDelta = new Vector2(0, y + 30f);
+        }
+
+        void AddTuneHeader(string text, ref float y)
+        {
+            const float h = 64f;
+            float top = -y, bottom = -(y + h);
+            Txt("Header", tuningContent, text, 32, Palette.Orange, TextAnchor.LowerLeft, new Vector2(0, 1), new Vector2(1, 1), new Vector2(24, bottom), new Vector2(-24, top));
+            y += h;
+        }
+
+        void AddTuneRow(TuneSpec spec, ref float y)
+        {
+            const float h = 104f;
+            float top = -y, bottom = -(y + h);
+            var rowRt = Rect(spec.Label, tuningContent, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, bottom), new Vector2(0, top));
+            Txt("Label", rowRt, spec.Label, 28, Color.white, TextAnchor.MiddleLeft, Vector2.zero, Vector2.one, new Vector2(24, 0), new Vector2(-440, 0));
+            var valueText = Txt("Value", rowRt, FormatValue(spec), 28, new Color(1f, 1f, 1f, 0.85f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, new Vector2(-420, 0), new Vector2(-280, 0));
+            EdgeBtn("Minus", rowRt, "-", Palette.TealDark, new Vector2(1, 0.5f), new Vector2(-220, 0), new Vector2(100, 80), () => AdjustTune(spec, -1, valueText));
+            EdgeBtn("Plus", rowRt, "+", Palette.Teal, new Vector2(1, 0.5f), new Vector2(-100, 0), new Vector2(100, 80), () => AdjustTune(spec, 1, valueText));
+            tuneRows.Add((spec, valueText));
+            y += h;
+        }
+
+        void AdjustTune(TuneSpec spec, int dir, Text valueText)
+        {
+            float v = Mathf.Clamp(spec.Get() + dir * spec.Step, spec.Min, spec.Max);
+            spec.Set(v);
+            valueText.text = FormatValue(spec);
+            Tuning.Save();
+        }
+
+        void RefreshTuningValues()
+        {
+            foreach (var (spec, text) in tuneRows) text.text = FormatValue(spec);
+        }
+
+        void BuildTuningButtons()
+        {
+            string[] labels = { "RESET", "PASTE", "COPY", "PLAY" };
+            Color[] colors = { new Color(0.45f, 0.27f, 0.25f), Palette.TealDark, Palette.Teal, Palette.Orange };
+            UnityEngine.Events.UnityAction[] actions = { OnResetTuning, OnPasteTuning, OnCopyTuning, OnPlayTuned };
+            const float h = 110f, margin = 14f;
+            for (int i = 0; i < labels.Length; i++)
+            {
+                float x0 = i / 4f, x1 = (i + 1) / 4f;
+                var img = Img("TuneBtn" + i, tuning.transform, colors[i], new Vector2(x0, 0), new Vector2(x1, 0), new Vector2(margin, 24), new Vector2(-margin, 24 + h));
+                img.gameObject.AddComponent<Button>().onClick.AddListener(actions[i]);
+                Txt("Label", img.transform, labels[i], 28, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            }
+        }
+
+        void ShowToast(string msg) { if (toastText == null) return; toastText.text = msg; var c = toastText.color; c.a = 1f; toastText.color = c; toastT = 1.4f; }
+
+        void OnCopyTuning() { Tuning.CopyToClipboard(); ShowToast("Copied!"); }
+
+        void OnPasteTuning()
+        {
+            if (Tuning.TryPasteFromClipboard(out var error)) { RefreshTuningValues(); ShowToast("Pasted!"); }
+            else ShowToast(error ?? "Paste failed");
+        }
+
+        void OnResetTuning() { Tuning.Reset(); RefreshTuningValues(); ShowToast("Reset"); }
+
+        void OnPlayTuned()
+        {
+            GameManager.I.SetLevelNumber(Tuning.Current.startingLevel);
+            GameManager.I.BuildRun();
+            GameManager.I.StartRun();
+            tuning.SetActive(false);
+        }
+
+        public void ShowTuning()
+        {
+            if (menu != null) menu.SetActive(false);
+            if (hud != null) hud.SetActive(false);
+            if (end != null) end.SetActive(false);
+            if (select != null) select.SetActive(false);
+            if (stage != null) stage.Hide();
+            RefreshTuningValues();
+            tuning.SetActive(true);
+        }
+
+        void HideTuning()
+        {
+            tuning.SetActive(false);
+            ShowMenu();
         }
     }
 

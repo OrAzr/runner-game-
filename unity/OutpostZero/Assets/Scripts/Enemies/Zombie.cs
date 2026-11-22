@@ -9,6 +9,7 @@ namespace OutpostZero
         public float moveSpeed = 1.6f, aggroRange = 30f;
         protected Transform armL, armR; protected Renderer[] skin; protected float phase; protected Vector3 baseScale = Vector3.one;
         static float groanCooldown;
+        bool waveScaled;
 
         public static Zombie Create(Transform parent, Vector3 pos, float hp, float scale = 1f, float speed = 1.6f)
         {
@@ -46,6 +47,7 @@ namespace OutpostZero
             float dz = p.z - sp.z;
             if (dz < aggroRange && dz > -3f)
             {
+                if (!waveScaled) { waveScaled = true; ScaleForSquad(gm, squad); }
                 var dir = new Vector3(sp.x - p.x, 0, sp.z - p.z).normalized;
                 p += dir * moveSpeed * dt; p.y = Mathf.Abs(Mathf.Sin(phase)) * 0.06f; transform.position = p;
                 transform.rotation = Quaternion.LookRotation(-dir); // model faces -Z
@@ -56,13 +58,26 @@ namespace OutpostZero
             if (Vector2.Distance(new Vector2(p.x, p.z), new Vector2(sp.x, sp.z + 0.35f)) < squad.Radius + 0.3f)
             {
                 if (squad.Rook.ShieldActive) { gm.Kills++; AudioManager.I?.Play(Sfx.ZombieHit, 0.6f); Effects.Spark(p + Vector3.up, new Color(0.6f, 0.94f, 0.94f)); }
-                else squad.Lose(1);
+                else squad.Lose(Mathf.Max(0, Mathf.RoundToInt(Tuning.Current.zombieContactDamageMult)));
                 Alive = false; gm.Unregister(this);
                 Effects.Burst(p + Vector3.up, 10, new Color(0.56f, 0.69f, 0.29f), 4f);
                 StartCoroutine(Pop());
                 return;
             }
             if (dz < -6f) Destroy(gameObject);
+        }
+
+        /// <summary>Runs once, the first time this zombie aggros, so a wave's HP reflects how big the squad
+        /// has actually grown (via gates passed earlier in the run) rather than the fixed value it was
+        /// spawned with at BuildRun time - only meaningful once the owner's waveSquadScale knob is above 0.</summary>
+        void ScaleForSquad(GameManager gm, SquadController squad)
+        {
+            float factor = Mathf.Clamp01(Tuning.Current.waveSquadScale);
+            if (factor <= 0f) return;
+            int baseline = Mathf.Max(1, gm.level.startCount);
+            float ratio = Mathf.Max(1f, (float)squad.Count / baseline);
+            float scale = Mathf.Lerp(1f, ratio, factor);
+            hp *= scale; maxHp *= scale;
         }
 
         static readonly MaterialPropertyBlock hitBlock = new MaterialPropertyBlock();
