@@ -13,6 +13,7 @@ namespace OutpostZero
         Image progressFill, bossFill, weaponFill; GameObject bossBar, weaponBox;
         Text weaponName, bossHpText, shieldText, endTitle, endStats, popup;
         Text heroName, heroRole, heroWeapon, heroSpecial; Image selectBtnImage; Button selectBtn; Text selectBtnLabel;
+        Image[] rosterDots;
         RectTransform modelZone;
         CharacterStage stage;
         int heroIndex;
@@ -107,19 +108,27 @@ namespace OutpostZero
             Txt("Heading", select.transform, "CHOOSE YOUR HERO", 64, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -160), new Vector2(0, -40));
             var zone = Img("ModelZone", select.transform, new Color(0, 0, 0, 0.01f), new Vector2(0.16f, 0.36f), new Vector2(0.84f, 0.72f), Vector2.zero, Vector2.zero);
             modelZone = zone.rectTransform;
-            Btn("Prev", select.transform, "<", Palette.Teal, new Vector2(-360, 80), new Vector2(120, 120), () => StepHero(-1));
-            Btn("Next", select.transform, ">", Palette.Teal, new Vector2(360, 80), new Vector2(120, 120), () => StepHero(1));
-            heroName = Txt("Name", select.transform, "ROOK", 72, Color.white, TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 430), new Vector2(0, 520));
-            heroRole = Txt("Role", select.transform, "COMMANDER", 36, Palette.Orange, TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 370), new Vector2(0, 430));
-            heroWeapon = Txt("Weapon", select.transform, "WEAPON  ASSAULT RIFLE", 32, new Color(1, 1, 1, 0.9f), TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(40, 300), new Vector2(-40, 370));
-            heroSpecial = Txt("Special", select.transform, "SPECIAL  SHIELD WALL", 32, new Color(1, 1, 1, 0.9f), TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(40, 240), new Vector2(-40, 310));
+            Btn("Prev", select.transform, "<", Palette.Teal, new Vector2(-360, 120), new Vector2(120, 120), () => StepHero(-1));
+            Btn("Next", select.transform, ">", Palette.Teal, new Vector2(360, 120), new Vector2(120, 120), () => StepHero(1));
+            Txt("RotateHint", select.transform, "Drag to rotate", 28, new Color(1f, 1f, 1f, 0.7f), TextAnchor.MiddleCenter, new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0, -80), new Vector2(0, -30));
+            rosterDots = new Image[CharacterStage.Roster.Length];
+            for (int i = 0; i < rosterDots.Length; i++)
+            {
+                float x = (i - 1) * 36f;
+                rosterDots[i] = Img("Dot" + i, select.transform, Color.white, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(x - 8f, -130f), new Vector2(x + 8f, -114f));
+            }
+            var info = Img("Info", select.transform, new Color(0.03f, 0.04f, 0.05f, 0.86f), new Vector2(0, 0), new Vector2(1, 0), new Vector2(28, 36), new Vector2(-28, 560));
+            heroName = Txt("Name", info.transform, "ROOK", 72, Color.white, TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -110), new Vector2(-16, -16));
+            heroRole = Txt("Role", info.transform, "COMMANDER", 36, Palette.Orange, TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -170), new Vector2(-16, -110));
+            heroWeapon = Txt("Weapon", info.transform, "WEAPON  ASSAULT RIFLE", 32, new Color(1, 1, 1, 0.92f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -240), new Vector2(-16, -180));
+            heroSpecial = Txt("Special", info.transform, "SPECIAL  SHIELD WALL", 32, new Color(1, 1, 1, 0.92f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(16, -310), new Vector2(-16, -250));
             lockBadge = Rect("Lock", select.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-70, 40), new Vector2(70, 200)).gameObject;
             Img("ShackleL", lockBadge.transform, Color.white, new Vector2(0, 0.45f), new Vector2(0, 1), new Vector2(18, 0), new Vector2(34, -8));
             Img("ShackleR", lockBadge.transform, Color.white, new Vector2(1, 0.45f), new Vector2(1, 1), new Vector2(-34, 0), new Vector2(-18, -8));
             Img("ShackleTop", lockBadge.transform, Color.white, new Vector2(0, 1), new Vector2(1, 1), new Vector2(18, -28), new Vector2(-18, -10));
             Img("Body", lockBadge.transform, Color.white, new Vector2(0, 0), new Vector2(1, 0.55f), new Vector2(8, 0), new Vector2(-8, 0));
             soonBanner = Txt("Soon", select.transform, "COMING SOON", 40, new Color(1f, 0.85f, 0.45f), TextAnchor.MiddleCenter, new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0, -40), new Vector2(0, 30)).gameObject;
-            selectBtn = Btn("Select", select.transform, "SELECT", Palette.Orange, new Vector2(0, -620), new Vector2(460, 120), ConfirmHero);
+            selectBtn = Btn("Select", info.transform, "SELECT", Palette.Orange, new Vector2(0, -180), new Vector2(460, 110), ConfirmHero);
             selectBtnImage = selectBtn.GetComponent<Image>();
             selectBtnLabel = selectBtn.GetComponentInChildren<Text>();
             var stageGo = new GameObject("CharacterStage");
@@ -133,6 +142,7 @@ namespace OutpostZero
 
         public void ShowSelect()
         {
+            if (hud != null) hud.SetActive(false);
             if (menu != null) menu.SetActive(false);
             if (end != null) end.SetActive(false);
             if (select != null) select.SetActive(true);
@@ -159,6 +169,11 @@ namespace OutpostZero
             if (selectBtn != null) selectBtn.interactable = open;
             if (selectBtnImage != null) selectBtnImage.color = open ? Palette.Orange : new Color(0.35f, 0.37f, 0.4f);
             if (selectBtnLabel != null) selectBtnLabel.text = open ? "SELECT" : "LOCKED";
+            if (rosterDots != null)
+            {
+                for (int i = 0; i < rosterDots.Length; i++)
+                    if (rosterDots[i] != null) rosterDots[i].color = i == index ? Palette.Orange : new Color(1f, 1f, 1f, 0.35f);
+            }
             if (stage != null) stage.Show(index);
         }
 
@@ -175,12 +190,14 @@ namespace OutpostZero
         {
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
+            if (hud != null) hud.SetActive(true);
             menu.SetActive(true); end.SetActive(false);
         }
         public void ShowHud()
         {
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
+            if (hud != null) hud.SetActive(true);
             menu.SetActive(false); end.SetActive(false);
         }
         public void ShowEnd(bool win, int survivors, int kills, float dist)
