@@ -100,6 +100,48 @@ namespace OutpostZero
             holder.transform.SetParent(spin, false);
             var built = RookAvatar.Build(holder.transform, locked);
             preview = locked ? null : built;
+            FrameHero(built.Root);
+        }
+
+        /// <summary>Places the stage camera so the hero (head to feet, including the weapon) fits in the portrait
+        /// frame with margin, computed from the model's own bounds and the camera's FOV/aspect instead of a
+        /// fixed distance - the fixed 4.4m distance used to crop tall phones' narrower vertical field of view.</summary>
+        void FrameHero(Transform heroRoot)
+        {
+            if (stageCam == null || heroRoot == null) return;
+            var savedYaw = spin.localRotation;
+            spin.localRotation = Quaternion.identity;
+            // CombinedBounds uses SkinnedMeshRenderer.localBounds (not .bounds, which can still be the stale
+            // pre-skinning box this same frame) so this is safe to call immediately after the rigged Rook
+            // is instantiated, before the animation graph has evaluated a single frame.
+            var measured = Prims.CombinedBounds(heroRoot);
+            spin.localRotation = savedYaw;
+            if (measured == null) return;
+            var bounds = measured.Value;
+
+            // The preview keeps spinning after this runs, so use the farthest-corner distance from the spin
+            // axis (not just this one orientation's half-width) as the horizontal radius: that bounds the
+            // model at every yaw angle, including the arm holding a weapon out to one side.
+            float cx = bounds.center.x - spin.position.x, cz = bounds.center.z - spin.position.z;
+            float ex = bounds.extents.x, ez = bounds.extents.z;
+            float radius = 0f;
+            for (int sx = -1; sx <= 1; sx += 2)
+                for (int sz = -1; sz <= 1; sz += 2)
+                    radius = Mathf.Max(radius, new Vector2(cx + sx * ex, cz + sz * ez).magnitude);
+
+            const float margin = 1.2f; // headroom so the hero doesn't touch the frame edges
+            float aspect = stageCam.aspect > 0.01f ? stageCam.aspect : (float)Screen.width / Mathf.Max(1, Screen.height);
+            float vFov = stageCam.fieldOfView * Mathf.Deg2Rad;
+            float hFov = 2f * Mathf.Atan(Mathf.Tan(vFov * 0.5f) * aspect);
+            float distV = (bounds.extents.y * margin) / Mathf.Tan(vFov * 0.5f);
+            float distH = (radius * margin) / Mathf.Tan(hFov * 0.5f);
+            float dist = Mathf.Max(distV, distH) + radius;
+
+            var camT = stageCam.transform;
+            Vector3 focusWorld = new Vector3(spin.position.x, bounds.center.y, spin.position.z);
+            Vector3 focusLocal = transform.InverseTransformPoint(focusWorld);
+            camT.localPosition = new Vector3(focusLocal.x, focusLocal.y, focusLocal.z + dist);
+            camT.LookAt(focusWorld);
         }
 
         public void Hide()

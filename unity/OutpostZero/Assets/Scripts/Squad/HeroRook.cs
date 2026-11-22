@@ -28,6 +28,8 @@ namespace OutpostZero
 
         public void ShowWeapon(WeaponType type) { if (weapon != null) weapon.Show(type); }
         public void Kick(float amount) { if (weapon != null) weapon.Kick(amount); }
+        public void PlayHitReaction() { avatar?.PlayHitReaction(); }
+        public void PlayDeath() { avatar?.PlayDeath(); }
 
         public void ActivateShield()
         {

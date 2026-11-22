@@ -19,7 +19,7 @@ namespace OutpostZero
                 case WeaponType.Flamethrower:
                     return new WeaponDef { label = "FLAMETHROWER", dps = 2.2f, range = 9, cone = 0.55f, gateRate = 22f, sfx = Sfx.FlameLoop, tracer = new Color(1f, 0.5f, 0.1f) };
                 default:
-                    return new WeaponDef { label = "ASSAULT RIFLE", rate = 2.2f, damage = 1, range = 24, speed = 42, pellets = 1, spread = 0.035f, gate = 1, sfx = Sfx.Rifle, tracer = new Color(1f, 0.88f, 0.54f) };
+                    return new WeaponDef { label = "ASSAULT RIFLE", rate = 2.2f, damage = 1, range = 24, speed = 42, pellets = 1, spread = 0.035f, gate = 1, sfx = Sfx.Rifle, tracer = new Color(0.35f, 0.92f, 1f) };
             }
         }
     }

@@ -8,18 +8,28 @@ namespace OutpostZero
     {
         static readonly Stack<Projectile> pool = new Stack<Projectile>();
         static Transform poolRoot;
-        Vector3 velocity, prev; float life, damage; int gatePoints; Renderer rend, glow;
+        Vector3 velocity, prev; float life, damage; int gatePoints; Renderer rend, glow; TrailRenderer trailR;
 
         public static void Fire(Vector3 pos, Vector3 dir, float speed, float range, float damage, Color color, int gatePoints = 1, bool heavy = false)
         {
             Projectile p = pool.Count > 0 ? pool.Pop() : Create();
             p.transform.position = pos; p.prev = pos; p.transform.rotation = Quaternion.LookRotation(dir);
-            p.transform.localScale = heavy ? new Vector3(0.09f, 0.09f, 0.42f) : new Vector3(0.03f, 0.03f, 0.95f);
+            // Rifle: a fast cyan bolt with a glowing tail and a short real TrailRenderer.
+            // Shotgun: a small, roughly-round glowing pellet with no stretched tail or trail.
+            p.transform.localScale = heavy ? new Vector3(0.055f, 0.055f, 0.06f) : new Vector3(0.03f, 0.03f, 0.95f);
+            if (p.glow != null) p.glow.gameObject.SetActive(!heavy);
             p.velocity = dir * speed; p.life = range / speed; p.damage = damage; p.gatePoints = gatePoints;
             mpb.Clear();
             mpb.SetColor("_Color", color); mpb.SetColor("_TintColor", color); mpb.SetColor("_BaseColor", color);
             p.rend.SetPropertyBlock(mpb);
             if (p.glow != null) p.glow.SetPropertyBlock(mpb);
+            if (p.trailR != null)
+            {
+                p.trailR.Clear();
+                p.trailR.emitting = !heavy;
+                p.trailR.startColor = color;
+                p.trailR.endColor = new Color(color.r, color.g, color.b, 0f);
+            }
             p.gameObject.SetActive(true);
         }
 
@@ -43,7 +53,15 @@ namespace OutpostZero
             trail.transform.localPosition = new Vector3(0f, 0f, -0.35f);
             trail.transform.localScale = new Vector3(2.4f, 2.4f, 0.45f);
             var gr = trail.GetComponent<Renderer>(); gr.sharedMaterial = sharedMat; gr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            var p = go.AddComponent<Projectile>(); p.rend = r; p.glow = gr; return p;
+            var tr = go.AddComponent<TrailRenderer>();
+            tr.sharedMaterial = sharedMat;
+            tr.time = 0.1f;
+            tr.widthMultiplier = 0.05f;
+            tr.minVertexDistance = 0.05f;
+            tr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            tr.receiveShadows = false;
+            tr.emitting = false;
+            var p = go.AddComponent<Projectile>(); p.rend = r; p.glow = gr; p.trailR = tr; return p;
         }
 
         void Update()
