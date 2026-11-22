@@ -53,6 +53,7 @@ namespace OutpostZero
             public int shown;
             public bool dirty;
             public float labelAt;
+            public Renderer labelRenderer;
         }
 
         Side left, right; bool used; float halfWidth;
@@ -85,6 +86,7 @@ namespace OutpostZero
             s.frame = new[] { a.GetComponent<Renderer>(), b.GetComponent<Renderer>(), top.GetComponent<Renderer>() };
             string text = op.Counter ? GateOp.Format(op.n) : op.Text;
             s.label = Prims.Label3D(transform, text, new Vector3(cx, 1.55f, -0.15f), 1.45f, Color.white);
+            s.labelRenderer = s.label.GetComponent<MeshRenderer>();
             return s;
         }
 
@@ -141,10 +143,25 @@ namespace OutpostZero
             Effects.Spark(pos, s.value >= 0f ? new Color(0.62f, 0.83f, 1f) : new Color(1f, 0.69f, 0.64f));
         }
 
+        // Text and frame/outline renderers only turn on once the gate is within this range of the camera.
+        // The panel itself keeps using the shader's own built-in fog (see FogVisibility below for the label's
+        // extra fade), but the frame posts/top use an Unlit material that never samples fog at all, and
+        // relying on label alpha alone still left both "floating in the gray sky" long before the road under
+        // them was visible - a hard distance cutoff is correct regardless of which shader a part uses.
+        const float VisibleRange = 62f;
+
+        bool IsVisible()
+        {
+            var cam = Camera.main;
+            if (cam == null) return true;
+            return Vector3.Distance(cam.transform.position, transform.position) <= VisibleRange;
+        }
+
         void Update()
         {
             float dt = Time.deltaTime;
-            TickSide(left, dt); TickSide(right, dt);
+            bool visible = IsVisible();
+            TickSide(left, dt, visible); TickSide(right, dt, visible);
             var gm = GameManager.I; if (used || gm == null || !gm.IsPlaying) return;
             var sq = gm.Squad; if (sq == null) return;
             if (sq.transform.position.z >= transform.position.z)
@@ -160,8 +177,10 @@ namespace OutpostZero
             }
         }
 
-        void TickSide(Side s, float dt)
+        void TickSide(Side s, float dt, bool visible)
         {
+            if (s.frame != null) foreach (var r in s.frame) if (r) r.enabled = visible;
+            if (s.labelRenderer) s.labelRenderer.enabled = visible;
             if (s.bump > 0f)
             {
                 s.bump = Mathf.Max(0f, s.bump - dt * 4.2f);
@@ -174,11 +193,8 @@ namespace OutpostZero
                 var c = s.panel.material.color; c.a = Mathf.Min(0.92f, 0.4f + s.flash * 4f); s.panel.material.color = c;
             }
             if (s.dirty && Time.time - s.labelAt > 0.045f) Paint(s);
-            // TextMesh renders with the font's own material, which (unlike the panel/frame's fog-aware
-            // Standard-shader materials) never samples RenderSettings.fog - so without this the gate's value
-            // text stayed fully legible out past where the gate itself had faded into the fog and wasn't
-            // visible yet. Fading the label's alpha by the same linear-fog distance keeps it appearing only
-            // once the gate it belongs to is actually visible.
+            // On top of the hard VisibleRange cutoff above, fade the label's own alpha by distance so it
+            // eases in rather than popping at full opacity the instant it crosses the range.
             var lc = s.label.color; lc.a = FogVisibility(s.label.transform.position); s.label.color = lc;
         }
 
