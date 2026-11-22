@@ -105,8 +105,7 @@ namespace OutpostZero.EditorTools
             "Mobile/Particles/Additive",
             "Universal Render Pipeline/Lit",
             "Universal Render Pipeline/Unlit",
-            "Universal Render Pipeline/Particles/Unlit",
-            "Hidden/InternalErrorShader"
+            "Universal Render Pipeline/Particles/Unlit"
         };
 
         // No scene asset references these shaders, so the player stripper drops them and Shader.Find returns null.
@@ -127,7 +126,9 @@ namespace OutpostZero.EditorTools
             }
             for (int n = 0; n < RuntimeShaders.Length; n++)
             {
+                if (RuntimeShaders[n].StartsWith("Hidden/")) continue;
                 var shader = Shader.Find(RuntimeShaders[n]);
+                if (shader != null && shader.name.StartsWith("Hidden/")) continue;
                 if (shader == null)
                 {
                     Debug.LogWarning("[Outpost Zero] Shader not found in the editor: " + RuntimeShaders[n]);
