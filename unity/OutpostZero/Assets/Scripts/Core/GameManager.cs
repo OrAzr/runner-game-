@@ -13,6 +13,7 @@ namespace OutpostZero
         public bool autoStart = false;
 
         public GameState State { get; private set; } = GameState.Menu;
+        public int LevelNumber { get; private set; } = 1;
         public SquadController Squad { get; private set; }
         public Boss Boss { get; private set; }
         public float Distance => Squad ? Squad.Distance : 0f;
@@ -46,6 +47,7 @@ namespace OutpostZero
         {
             if (runRoot) Destroy(runRoot);
             targets.Clear(); Kills = 0; Boss = null;
+            level = Levels.Build(LevelNumber);
             runRoot = new GameObject("Run");
             LevelBuilder.Build(level, runRoot.transform);
             var squadGo = new GameObject("Squad"); squadGo.transform.SetParent(runRoot.transform);
@@ -76,11 +78,12 @@ namespace OutpostZero
             if (State == GameState.Running && Squad.Distance >= level.bossDistance) BeginBoss();
         }
 
-        /// <summary>Brief slow-motion punch. Cooldown keeps a big squad from freezing the boss.</summary>
+        /// <summary>Brief slow-motion punch for a bullet impact. Capped short (normal hits should barely
+        /// register as slow-mo) and cooldown-gated so a big squad's volume of fire can't freeze the boss.</summary>
         public void HitStop(float seconds)
         {
             if (Time.unscaledTime < nextStop) return;
-            hitstop = Mathf.Max(hitstop, seconds);
+            hitstop = Mathf.Max(hitstop, Mathf.Min(seconds, 0.06f));
             nextStop = Time.unscaledTime + 0.18f;
         }
 
@@ -103,6 +106,9 @@ namespace OutpostZero
             if (!IsPlaying) return;
             hitstop = 0f; Time.timeScale = 1f;
             State = win ? GameState.Victory : GameState.Defeat;
+            // Final-defeat-only slow-mo, capped well under a second so it reads as dramatic punctuation
+            // rather than the old multi-second freeze; Update() always ticks this back down to timeScale 1.
+            if (!win) hitstop = 0.6f; else LevelNumber++;
             AudioManager.I?.StopMusic();
             AudioManager.I?.StopFlame();
             AudioManager.I?.Play(win ? Sfx.Victory : Sfx.Defeat);

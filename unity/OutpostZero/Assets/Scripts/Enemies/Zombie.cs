@@ -10,10 +10,10 @@ namespace OutpostZero
         protected Transform armL, armR; protected Renderer[] skin; protected float phase; protected Vector3 baseScale = Vector3.one;
         static float groanCooldown;
 
-        public static Zombie Create(Transform parent, Vector3 pos, float hp, float scale = 1f)
+        public static Zombie Create(Transform parent, Vector3 pos, float hp, float scale = 1f, float speed = 1.6f)
         {
             var go = new GameObject("Zombie"); go.transform.SetParent(parent, false); go.transform.position = pos;
-            var z = go.AddComponent<Zombie>(); z.Build(scale); z.maxHp = z.hp = hp; return z;
+            var z = go.AddComponent<Zombie>(); z.Build(scale); z.maxHp = z.hp = hp; z.moveSpeed = speed; return z;
         }
 
         protected void Build(float scale)

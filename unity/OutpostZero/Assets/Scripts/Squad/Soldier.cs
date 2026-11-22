@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace OutpostZero
@@ -6,6 +7,7 @@ namespace OutpostZero
     public class Soldier : MonoBehaviour
     {
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : transform;
+        public bool Dying { get; private set; }
         WeaponVisual weapon;
         float bobSeed;
         Vector3 smoothVel;
@@ -45,6 +47,33 @@ namespace OutpostZero
             transform.position = p;
             transform.rotation = Quaternion.Euler(bob * 60f, 0f, lean * 0.65f);
             if (weapon != null) weapon.Tick(dt);
+        }
+
+        /// <summary>Short, snappy knockback-and-shrink instead of vanishing instantly or ragdolling away
+        /// for a long high flight - reads as a quick "pop" within about a third of a second.</summary>
+        public void Kill()
+        {
+            if (Dying) return;
+            Dying = true;
+            StartCoroutine(DeathPop());
+        }
+
+        IEnumerator DeathPop()
+        {
+            const float duration = 0.32f;
+            Vector3 startScale = transform.localScale;
+            Vector3 startPos = transform.position;
+            Vector3 kick = new Vector3(Random.Range(-0.7f, 0.7f), 1.8f, -0.5f);
+            float t = 0f;
+            while (t < duration)
+            {
+                t += Time.deltaTime;
+                float u = Mathf.Clamp01(t / duration);
+                transform.localScale = startScale * (1f - u);
+                transform.position = startPos + kick * u;
+                yield return null;
+            }
+            Destroy(gameObject);
         }
     }
 }

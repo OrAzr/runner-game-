@@ -11,7 +11,7 @@ namespace OutpostZero
 
         Canvas canvas; GameObject menu, hud, end, select, lockBadge, soonBanner;
         Image progressFill, bossFill, weaponFill; GameObject bossBar, weaponBox;
-        Text weaponName, bossHpText, shieldText, endTitle, endStats, popup;
+        Text weaponName, bossHpText, shieldText, endTitle, endStats, popup, levelText;
         Text heroName, heroRole, heroWeapon, heroSpecial; Image selectBtnImage; Button selectBtn; Text selectBtnLabel;
         Image[] rosterDots;
         RectTransform modelZone;
@@ -19,7 +19,7 @@ namespace OutpostZero
         int heroIndex;
         bool selectDragging, selectOnModel;
         Vector2 selectStart, selectLast;
-        float popupT;
+        float popupT, popupPulse;
         Font font;
 
         void Awake() { I = this; font = Prims.UIFont(); Build(); }
@@ -63,6 +63,7 @@ namespace OutpostZero
             // HUD
             hud = Rect("HUD", safe, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
             Txt("Squad", hud.transform, "ROOK'S SQUAD", 34, Color.white, TextAnchor.MiddleLeft, new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -80), new Vector2(330, -20));
+            levelText = Txt("LevelNum", hud.transform, "LEVEL 1", 26, new Color(1f, 1f, 1f, 0.72f), TextAnchor.MiddleLeft, new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -110), new Vector2(330, -86));
             var track = Img("Progress", hud.transform, new Color(0, 0, 0, 0.45f), new Vector2(0, 1), new Vector2(1, 1), new Vector2(340, -62), new Vector2(-30, -38));
             progressFill = Img("Fill", track.transform, Palette.Teal, Vector2.zero, new Vector2(0, 1), Vector2.zero, Vector2.zero);
             weaponBox = Img("Weapon", hud.transform, new Color(0.91f, 0.47f, 0.17f, 0.92f), new Vector2(0, 1), new Vector2(0, 1), new Vector2(30, -320), new Vector2(380, -230)).gameObject;
@@ -211,13 +212,17 @@ namespace OutpostZero
 
         public void Popup(string text, bool good)
         {
-            popup.text = text; popup.color = good ? new Color(0.5f, 0.82f, 1f) : new Color(1f, 0.42f, 0.36f); popupT = 0.9f;
+            // Just the gate's own value (e.g. "+4", "-11") - no "-> newTotal" arrow, which read as debug
+            // output. A quick pulse stands in for the old transition text instead.
+            popup.text = text; popup.color = good ? new Color(0.5f, 0.82f, 1f) : new Color(1f, 0.42f, 0.36f);
+            popupT = 0.9f; popupPulse = 1f;
         }
 
         void Update()
         {
             if (select != null && select.activeSelf) { TickSelect(); return; }
             var gm = GameManager.I; if (gm == null || gm.Squad == null) return;
+            if (levelText != null) levelText.text = "LEVEL " + gm.LevelNumber;
             progressFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(gm.Distance / gm.level.bossDistance), 1);
             var sh = gm.Squad.Shooter;
             weaponBox.SetActive(sh.Current != WeaponType.AssaultRifle);
@@ -232,6 +237,7 @@ namespace OutpostZero
             var rook = gm.Squad.Rook;
             shieldText.text = rook.ShieldActive ? "SHIELD\nACTIVE" : rook.Cooldown > 0 ? $"SHIELD\n{Mathf.CeilToInt(rook.Cooldown)}s" : "SHIELD\nREADY";
             if (popupT > 0) { popupT -= Time.deltaTime; var c = popup.color; c.a = Mathf.Clamp01(popupT / 0.4f); popup.color = c; }
+            if (popupPulse > 0f) { popupPulse = Mathf.Max(0f, popupPulse - Time.deltaTime * 4.5f); float sc = 1f + popupPulse * 0.35f; popup.transform.localScale = Vector3.one * sc; }
         }
 
         void TickSelect()

@@ -36,7 +36,7 @@ namespace OutpostZero
                 {
                     float a = i * 2.4f, r = 0.7f * Mathf.Sqrt(i);
                     var pos = new Vector3(Mathf.Clamp(grp.x + Mathf.Cos(a) * r, -hw + 0.5f, hw - 0.5f), 0, grp.distance + Mathf.Sin(a) * r);
-                    Zombie.Create(zs, pos, grp.hp);
+                    Zombie.Create(zs, pos, grp.hp, 1f, grp.speed);
                 }
 
             var crates = new GameObject("Crates").transform; crates.SetParent(root, false);

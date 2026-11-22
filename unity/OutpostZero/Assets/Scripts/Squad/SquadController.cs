@@ -58,7 +58,9 @@ namespace OutpostZero
             }
             SyncBodies(running, dt);
             Rook.Tick(dt, Radius);
-            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler(running ? 8f : 2f, 0, lean);
+            // A squad-loss hit adds a quick backward pitch on top of the run pose (see RookAvatar.FlinchPitch)
+            // instead of interrupting it, so Rook keeps running and shooting through the reaction.
+            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler((running ? 8f : 2f) - Rook.HitFlinch * 22f, 0, lean);
             if (shownCount != Count) { shownCount = Count; countLabel.text = Count.ToString(); countPop = 1f; }
             countPop = Mathf.Max(0f, countPop - dt * 3.2f);
             float pop = 1f + countPop * 0.5f;
@@ -70,7 +72,10 @@ namespace OutpostZero
         {
             int vis = Mathf.Min(Count, MaxVisible);
             while (soldiers.Count < Mathf.Max(1, vis)) soldiers.Add(soldiers.Count == 0 ? null : SpawnSoldier(soldiers.Count, vis));
-            for (int i = soldiers.Count - 1; i >= Mathf.Max(1, vis); i--) { if (soldiers[i]) Destroy(soldiers[i].gameObject); soldiers.RemoveAt(i); }
+            // Removed soldiers play a short death pop themselves (Soldier.Kill) rather than vanishing
+            // instantly, so they're dropped from the formation list immediately but keep animating on their
+            // own until the coroutine destroys them.
+            for (int i = soldiers.Count - 1; i >= Mathf.Max(1, vis); i--) { if (soldiers[i]) soldiers[i].Kill(); soldiers.RemoveAt(i); }
             float hw = level.roadHalfWidth - 0.3f;
             for (int i = 1; i < soldiers.Count; i++)
             {
@@ -111,21 +116,21 @@ namespace OutpostZero
         public void ApplyGate(GateOp op)
         {
             int before = Count;
-            Count = Mathf.Max(0, op.Apply(Count));
+            Count = Mathf.Clamp(op.Apply(Count), 0, level.squadCap);
             ResolveGate(op.Text, before, op.Good);
         }
 
         public void ApplyCounter(int delta)
         {
             int before = Count;
-            Count = Mathf.Max(0, Count + delta);
+            Count = Mathf.Clamp(Count + delta, 0, level.squadCap);
             ResolveGate(GateOp.Format(delta), before, delta >= 0);
         }
 
         void ResolveGate(string text, int before, bool good)
         {
             AudioManager.I?.Play(good ? Sfx.GateGood : Sfx.GateBad, good ? 0.95f : 0.8f);
-            GameUI.I?.Popup(text + "  →  " + Count, Count >= before);
+            GameUI.I?.Popup(text, Count >= before);
             Effects.Burst(transform.position + Vector3.up * 1.3f, good ? 16 : 10, good ? new Color(0.56f, 0.78f, 1f) : new Color(1f, 0.42f, 0.33f), 5f);
             GameManager.I.Shake(good ? 0.2f : 0.32f);
             countPop = 1f;

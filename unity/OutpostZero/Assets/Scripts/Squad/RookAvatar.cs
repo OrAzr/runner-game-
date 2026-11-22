@@ -14,6 +14,19 @@ namespace OutpostZero
         public WeaponVisual Weapon;
         public HeroAnimator Anim;
 
+        // Procedural flinch for squad-loss hits: a quick backward torso tilt layered on top of the normal
+        // run/shoot pose instead of the old TriggerOnce("Gunshot") full-body reaction clip, which locked out
+        // Play() for its whole ~2-2.5s length (arms up, leaning back, stops shooting) and read as the squad
+        // slowing into slow motion on every single hit. FlinchPitch rises and falls smoothly over
+        // FlinchDuration (see Tick), so it never snaps, and Cooldown stops repeated hits from restacking it.
+        const float FlinchDuration = 0.22f;
+        const float FlinchCooldown = 0.35f;
+        float flinchT, flinchCooldownUntil;
+
+        /// <summary>0 at rest, peaking mid-flinch, back to 0 by FlinchDuration - always a smooth rise and
+        /// fall so a one-shot always blends back instead of snapping.</summary>
+        public float FlinchPitch { get; private set; }
+
         /// <summary>True for the rigged Meshy model (which has its own run cycle), false for the code-built
         /// primitive fallback (which has no locomotion animation of its own and still wants the procedural bob).</summary>
         public bool IsRigged => Anim != null;
@@ -224,6 +237,14 @@ namespace OutpostZero
 
         public void Tick(float dt, bool running)
         {
+            if (flinchT > 0f)
+            {
+                flinchT = Mathf.Max(0f, flinchT - dt);
+                float phase = 1f - flinchT / FlinchDuration;
+                FlinchPitch = Mathf.Sin(phase * Mathf.PI);
+            }
+            else FlinchPitch = 0f;
+
             float sway = Mathf.Sin(Time.time * (running ? 11f : 1.7f)) * (running ? 16f : 4f);
             if (ArmL != null) ArmL.localRotation = Quaternion.Euler(sway, 0f, 8f);
             if (ArmR != null) ArmR.localRotation = Quaternion.Euler(-sway * 0.35f, 0f, -8f);
@@ -240,8 +261,16 @@ namespace OutpostZero
             if (Anim != null) Anim.Play(running ? "Run_and_Shoot" : "Idle", true);
         }
 
-        /// <summary>One-shot reaction clips. No-op on the primitive body (Anim is null) or if a clip is missing.</summary>
-        public void PlayHitReaction() { Anim?.TriggerOnce("Gunshot"); }
+        /// <summary>Short flinch for a squad-loss hit: keeps running and shooting, just a quick recoil.
+        /// Gated by FlinchCooldown so a run of hits doesn't restack the tilt into something bigger.</summary>
+        public void PlayHitReaction()
+        {
+            if (Time.time < flinchCooldownUntil) return;
+            flinchCooldownUntil = Time.time + FlinchCooldown;
+            flinchT = FlinchDuration;
+        }
+
+        /// <summary>One-shot death clip. No-op on the primitive body (Anim is null) or if the clip is missing.</summary>
         public void PlayDeath() { Anim?.TriggerOnce("Dead"); }
 
         static GameObject Box(Transform parent, Vector3 pos, Vector3 scale, Material mat)
