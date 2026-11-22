@@ -8,10 +8,11 @@ namespace OutpostZero
         public bool playable;
     }
 
-    /// <summary>Lit pedestal and a Rook built with RookAvatar. Spin is driven by the select screen.</summary>
+    /// <summary>Isolated preview stage. Its camera is not MainCamera, so the run world is not drawn.</summary>
     public class CharacterStage : MonoBehaviour
     {
         public const string PrefKey = "outpostzero.hero";
+        public const int RingCount = 28;
         public static readonly HeroSlot[] Roster =
         {
             new HeroSlot { name = "ROOK", role = "COMMANDER", weapon = "ASSAULT RIFLE", special = "SHIELD WALL", playable = true },
@@ -19,9 +20,12 @@ namespace OutpostZero
             new HeroSlot { name = "HEAVY", role = "LOCKED", weapon = "—", special = "COMING SOON", playable = false }
         };
 
-        Transform spin, backdrop, rim, ring;
+        Transform spin;
+        Transform[] ringBits;
         GameObject model;
         RookAvatar preview;
+        Camera stageCam;
+        Camera mainCam;
         float yaw = 25f;
         float yawVel = 18f;
         bool dragging;
@@ -41,17 +45,41 @@ namespace OutpostZero
 
         public void Build()
         {
-            var back = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 1.2f, -2.4f), new Vector3(48f, 64f, 1f), Prims.Unlit(new Color(0.04f, 0.06f, 0.07f)));
-            backdrop = back.transform;
-            var glow = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 1.35f, -1.15f), new Vector3(4.2f, 5.4f, 1f), Prims.Unlit(new Color(0.1f, 0.42f, 0.45f)));
-            rim = glow.transform;
-            var pad = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.08f, 0f), new Vector3(1.35f, 0.08f, 1.35f), Prims.Mat(Palette.Gunmetal));
+            transform.position = new Vector3(0f, -500f, 0f);
+            transform.rotation = Quaternion.identity;
+
+            var camGo = new GameObject("StageCamera");
+            camGo.tag = "Untagged";
+            camGo.transform.SetParent(transform, false);
+            camGo.transform.localPosition = new Vector3(0f, 1.25f, 4.4f);
+            camGo.transform.LookAt(transform.position + new Vector3(0f, 1.05f, 0f));
+            stageCam = camGo.AddComponent<Camera>();
+            stageCam.clearFlags = CameraClearFlags.SolidColor;
+            stageCam.backgroundColor = new Color(0.04f, 0.06f, 0.07f, 1f);
+            stageCam.fieldOfView = 32f;
+            stageCam.nearClipPlane = 0.1f;
+            stageCam.farClipPlane = 25f;
+            stageCam.depth = 20f;
+            stageCam.enabled = false;
+
+            // Soft panel behind the hero. Quad's visible face is -Z, and the camera sits on +Z, so yaw 180 points -Z at the camera.
+            var rim = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 1.15f, -0.9f), new Vector3(2.4f, 2.6f, 1f), Prims.Unlit(new Color(0.1f, 0.38f, 0.42f)));
+            rim.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+
+            var pad = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.08f, 0f), new Vector3(1.15f, 0.08f, 1.15f), Prims.Mat(new Color(0.16f, 0.17f, 0.19f), true));
             pad.transform.localRotation = Quaternion.identity;
-            var trim = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.03f, 0.95f), Prims.Mat(Palette.TealDark));
-            trim.transform.localRotation = Quaternion.identity;
-            var lightRing = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.22f, 0f), new Vector3(1.2f, 0.015f, 1.2f), Prims.Unlit(new Color(0.25f, 0.95f, 0.9f)));
-            lightRing.transform.localRotation = Quaternion.identity;
-            ring = lightRing.transform;
+            var top = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.17f, 0f), new Vector3(0.92f, 0.025f, 0.92f), Prims.Mat(Palette.TealDark, true));
+            top.transform.localRotation = Quaternion.identity;
+
+            var ringMat = Prims.Unlit(new Color(0.25f, 0.95f, 0.9f));
+            ringBits = new Transform[RingCount];
+            for (int i = 0; i < RingCount; i++)
+            {
+                float a = i * Mathf.PI * 2f / RingCount;
+                var bit = Prims.Part(PrimitiveType.Cube, transform, new Vector3(Mathf.Cos(a) * 0.7f, 0.2f, Mathf.Sin(a) * 0.7f), new Vector3(0.07f, 0.05f, 0.07f), ringMat);
+                ringBits[i] = bit.transform;
+            }
+
             var pivot = new GameObject("Spin");
             spin = pivot.transform;
             spin.SetParent(transform, false);
@@ -62,6 +90,9 @@ namespace OutpostZero
         public void Show(int index)
         {
             gameObject.SetActive(true);
+            if (mainCam == null) mainCam = Camera.main;
+            if (mainCam != null) mainCam.enabled = false;
+            if (stageCam != null) stageCam.enabled = true;
             if (model != null) Destroy(model);
             bool locked = index < 0 || index >= Roster.Length || !Roster[index].playable;
             var holder = new GameObject("Preview");
@@ -69,11 +100,14 @@ namespace OutpostZero
             holder.transform.SetParent(spin, false);
             var built = RookAvatar.Build(holder.transform, locked);
             preview = locked ? null : built;
-            Place();
-            FaceBackdrop();
         }
 
-        public void Hide() { gameObject.SetActive(false); }
+        public void Hide()
+        {
+            if (stageCam != null) stageCam.enabled = false;
+            if (mainCam != null) mainCam.enabled = true;
+            gameObject.SetActive(false);
+        }
 
         public void BeginDrag() { dragging = true; yawVel = 0f; }
         public void Drag(float degrees) { yaw += degrees; yawVel = degrees / Mathf.Max(0.01f, Time.deltaTime); }
@@ -81,7 +115,7 @@ namespace OutpostZero
 
         void Update()
         {
-            if (!gameObject.activeSelf) return;
+            if (!isActiveAndEnabled) return;
             if (!dragging)
             {
                 yaw += yawVel * Time.deltaTime;
@@ -89,40 +123,12 @@ namespace OutpostZero
             }
             if (spin != null) spin.localRotation = Quaternion.Euler(0f, yaw, 0f);
             if (preview != null) preview.Tick(Time.deltaTime, false);
-            if (ring != null)
+            if (ringBits != null)
             {
-                float pulse = 1f + 0.035f * Mathf.Sin(Time.time * 2.2f);
-                ring.localScale = new Vector3(1.2f * pulse, 0.015f, 1.2f * pulse);
+                float pulse = 1f + 0.08f * Mathf.Sin(Time.time * 2.2f);
+                var s = new Vector3(0.07f * pulse, 0.05f * pulse, 0.07f * pulse);
+                for (int i = 0; i < ringBits.Length; i++) if (ringBits[i] != null) ringBits[i].localScale = s;
             }
-            Place();
-            FaceBackdrop();
-        }
-
-        void Place()
-        {
-            var cam = Camera.main;
-            if (cam == null) return;
-            Vector3 focus = cam.transform.position + cam.transform.forward * 7.2f;
-            transform.position = focus + Vector3.down * 0.85f;
-            transform.rotation = Quaternion.identity;
-        }
-
-        void FaceBackdrop()
-        {
-            Face(backdrop, 3.2f, 48f, 64f, 1.3f);
-            Face(rim, 1.35f, 4.2f, 5.4f, 1.45f);
-        }
-
-        void Face(Transform quad, float behind, float width, float height, float lift)
-        {
-            if (quad == null) return;
-            var cam = Camera.main;
-            if (cam == null) return;
-            quad.position = transform.position + cam.transform.forward * behind + Vector3.up * lift;
-            Vector3 fromCam = quad.position - cam.transform.position;
-            if (fromCam.sqrMagnitude < 0.001f) return;
-            quad.rotation = Quaternion.LookRotation(fromCam, cam.transform.up);
-            quad.localScale = new Vector3(width, height, 1f);
         }
     }
 }
