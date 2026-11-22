@@ -14,7 +14,18 @@ namespace OutpostZero
         public WeaponVisual Weapon;
         public HeroAnimator Anim;
 
-        const float RiggedTargetHeight = 1.47f; // matches the primitive body's own height (1.05 scale * ~1.4m)
+        /// <summary>True for the rigged Meshy model (which has its own run cycle), false for the code-built
+        /// primitive fallback (which has no locomotion animation of its own and still wants the procedural bob).</summary>
+        public bool IsRigged => Anim != null;
+
+        /// <summary>Single knob for how large the rigged hero reads in gameplay. 1x used to match the old
+        /// primitive body's own height so the swap wouldn't change gameplay framing; device testing showed
+        /// that "to scale" hero read as barely bigger than the squad grunts and tiny next to gates, so this
+        /// is boosted well past life-size on purpose. CharacterStage's select-screen preview re-frames its
+        /// camera from the model's own bounds (see CharacterStage.FrameHero), so it isn't affected by this.</summary>
+        public const float GameplayScale = 2.5f;
+        const float BaseRiggedHeight = 1.47f; // primitive body's own height (1.05 scale * ~1.4m)
+        const float RiggedTargetHeight = BaseRiggedHeight * GameplayScale;
 
         /// <summary>HeroRook and CharacterStage only ever call this factory and read Root/Chest/ArmL/ArmR/
         /// Cape/Weapon/Anim plus Tick(). Tries the rigged Meshy FBX first and falls back to the primitive body
@@ -38,6 +49,10 @@ namespace OutpostZero
             var animator = go.GetComponentInChildren<Animator>();
             var skinned = go.GetComponentInChildren<SkinnedMeshRenderer>();
             if (animator == null || skinned == null) { Object.Destroy(go); return null; }
+            // HeroAnimator drives clips through its own PlayableGraph rather than an AnimatorController, so
+            // nothing calls OnAnimatorMove to consume root motion anyway; this just makes sure the Animator
+            // never nudges the transform on its own if that ever changes.
+            animator.applyRootMotion = false;
 
             var bounds = Prims.CombinedBounds(root);
             if (bounds == null) { Object.Destroy(go); return null; }
@@ -69,6 +84,7 @@ namespace OutpostZero
             var anim = go.AddComponent<HeroAnimator>();
             avatar.Anim = anim.Build(animator) ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
+            else avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
 
             if (silhouette) TintDark(root);
             return avatar;
