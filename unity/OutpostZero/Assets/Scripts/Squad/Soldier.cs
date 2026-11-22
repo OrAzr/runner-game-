@@ -8,6 +8,7 @@ namespace OutpostZero
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : transform;
         WeaponVisual weapon;
         float bobSeed;
+        Vector3 smoothVel;
 
         public static Soldier Create(Transform parent)
         {
@@ -26,14 +27,18 @@ namespace OutpostZero
 
         public void Tick(Vector3 slot, bool running, float dt, float lean)
         {
-            float k = 4.2f + (bobSeed % 5f) * 1.15f;
+            // SmoothDamp (critically damped, frame-rate independent) instead of a per-soldier-k Lerp: the old
+            // Lerp plus an independent per-soldier sine bob/tilt made the whole trailing group read as a
+            // jittery blob since every soldier was relatively out of phase with its neighbors. One shared
+            // smoothTime keeps the pack moving together in a stable formation.
+            const float smoothTime = 0.16f;
             var p = transform.position;
-            p.x = Mathf.Lerp(p.x, slot.x, Mathf.Min(1f, dt * k));
-            p.z = Mathf.Lerp(p.z, slot.z, Mathf.Min(1f, dt * (k + 1.5f)));
-            float step = running ? Mathf.Sin(Time.time * 13f + bobSeed) : 0f;
-            p.y = running ? Mathf.Abs(step) * 0.1f : 0f;
+            Vector3 target = new Vector3(slot.x, 0f, slot.z);
+            p = Vector3.SmoothDamp(p, target, ref smoothVel, smoothTime);
+            float bob = running ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
+            p.y = bob;
             transform.position = p;
-            transform.rotation = Quaternion.Euler(step * 10f, 0f, lean * (0.65f + (bobSeed % 3f) * 0.12f));
+            transform.rotation = Quaternion.Euler(bob * 60f, 0f, lean * 0.65f);
             if (weapon != null) weapon.Tick(dt);
         }
     }

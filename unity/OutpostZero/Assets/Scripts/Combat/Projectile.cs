@@ -14,10 +14,16 @@ namespace OutpostZero
         {
             Projectile p = pool.Count > 0 ? pool.Pop() : Create();
             p.transform.position = pos; p.prev = pos; p.transform.rotation = Quaternion.LookRotation(dir);
-            // Rifle: a fast cyan bolt with a glowing tail and a short real TrailRenderer.
-            // Shotgun: a small, roughly-round glowing pellet with no stretched tail or trail.
-            p.transform.localScale = heavy ? new Vector3(0.055f, 0.055f, 0.06f) : new Vector3(0.03f, 0.03f, 0.95f);
-            if (p.glow != null) p.glow.gameObject.SetActive(!heavy);
+            // Rifle: a fast cyan bolt with a long glowing tail and a real TrailRenderer. Shotgun: a smaller,
+            // rounder glowing pellet with its own short tail/trail so it still reads as a tracer in flight
+            // instead of a flat, unlit sphere.
+            p.transform.localScale = heavy ? new Vector3(0.07f, 0.07f, 0.1f) : new Vector3(0.03f, 0.03f, 0.95f);
+            if (p.glow != null)
+            {
+                p.glow.gameObject.SetActive(true);
+                p.glow.transform.localScale = heavy ? new Vector3(1.5f, 1.5f, 0.3f) : new Vector3(2.4f, 2.4f, 0.45f);
+                p.glow.transform.localPosition = heavy ? new Vector3(0f, 0f, -0.14f) : new Vector3(0f, 0f, -0.35f);
+            }
             p.velocity = dir * speed; p.life = range / speed; p.damage = damage; p.gatePoints = gatePoints;
             mpb.Clear();
             mpb.SetColor("_Color", color); mpb.SetColor("_TintColor", color); mpb.SetColor("_BaseColor", color);
@@ -26,7 +32,9 @@ namespace OutpostZero
             if (p.trailR != null)
             {
                 p.trailR.Clear();
-                p.trailR.emitting = !heavy;
+                p.trailR.emitting = true;
+                p.trailR.time = heavy ? 0.05f : 0.1f;
+                p.trailR.widthMultiplier = heavy ? 0.035f : 0.05f;
                 p.trailR.startColor = color;
                 p.trailR.endColor = new Color(color.r, color.g, color.b, 0f);
             }
