@@ -48,7 +48,10 @@ namespace OutpostZero
                 vx = Mathf.Lerp(vx, desired, Mathf.Min(1f, dt * 12f));
                 // Margin scales with Rook's visual size (RookAvatar.GameplayScale) so his wider silhouette at
                 // 2.5x still clears the road edge/gate posts instead of clipping through them at full steer.
-                float edgeMargin = 0.45f * RookAvatar.GameplayScale;
+                // The multiplier is bigger than his static bind-pose half-width: the Run_and_Shoot clip swings
+                // his gun arm out to the side while running, and that reach was clipping through the barriers
+                // even with the margin PR #13 tuned against the (arms-in) bind pose.
+                float edgeMargin = 0.75f * RookAvatar.GameplayScale;
                 p.x = Mathf.Clamp(p.x + vx * dt, -level.roadHalfWidth + edgeMargin, level.roadHalfWidth - edgeMargin);
                 lean = Mathf.Lerp(lean, Mathf.Clamp(-vx * 3.2f, -18f, 18f), Mathf.Min(1f, dt * 9f));
                 transform.position = p;
@@ -73,7 +76,7 @@ namespace OutpostZero
             {
                 var slot = transform.position + Formation.Offset(i, vis, vx);
                 slot.x = Mathf.Clamp(slot.x, -hw, hw);
-                soldiers[i].Tick(slot, running, dt, lean);
+                soldiers[i].Tick(slot, running, dt, lean, hw);
             }
             // The rigged model plays its own Run_and_Shoot cycle, so the old procedural hop (added on top of
             // every frame's pose) doubled up with the clip's own motion and read as a visible mid-air bounce;

@@ -75,7 +75,7 @@ namespace OutpostZero
             var bt = Img("Track", bossBar.transform, new Color(0, 0, 0, 0.6f), Vector2.zero, new Vector2(1, 0), Vector2.zero, new Vector2(0, 44));
             bossFill = Img("Fill", bt.transform, new Color(0.85f, 0.2f, 0.15f), Vector2.zero, Vector2.one, new Vector2(4, 4), new Vector2(-4, -4));
             bossBar.SetActive(false);
-            var shield = Img("ShieldButton", hud.transform, Palette.Teal, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-250, 50), new Vector2(-40, 260));
+            var shield = Img("ShieldButton", hud.transform, Palette.Teal, new Vector2(1, 0), new Vector2(1, 0), new Vector2(-270, 50), new Vector2(-60, 270));
             shield.gameObject.AddComponent<Button>().onClick.AddListener(() => GameManager.I.Squad.Rook.ActivateShield());
             shieldRect = shield.rectTransform;
             shieldText = Txt("Label", shield.transform, "SHIELD\nREADY", 32, Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
@@ -292,8 +292,12 @@ namespace OutpostZero
         {
             var sa = Screen.safeArea; if (sa == last || Screen.width == 0) return; last = sa;
             var r = (RectTransform)transform;
-            r.anchorMin = new Vector2(sa.xMin / Screen.width, sa.yMin / Screen.height);
-            r.anchorMax = new Vector2(sa.xMax / Screen.width, sa.yMax / Screen.height);
+            // Clamp01: Screen.safeArea has been observed to report a frame or two of stale/mismatched values
+            // around iOS startup/orientation changes, which without clamping pushes this rect's anchor past
+            // the real screen edge - and every corner-anchored HUD element (e.g. the bottom-right shield
+            // button) along with it, reading as "cut off" even though the element's own offsets are fine.
+            r.anchorMin = new Vector2(Mathf.Clamp01(sa.xMin / Screen.width), Mathf.Clamp01(sa.yMin / Screen.height));
+            r.anchorMax = new Vector2(Mathf.Clamp01(sa.xMax / Screen.width), Mathf.Clamp01(sa.yMax / Screen.height));
         }
     }
 }

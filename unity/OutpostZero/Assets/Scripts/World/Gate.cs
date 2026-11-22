@@ -174,6 +174,23 @@ namespace OutpostZero
                 var c = s.panel.material.color; c.a = Mathf.Min(0.92f, 0.4f + s.flash * 4f); s.panel.material.color = c;
             }
             if (s.dirty && Time.time - s.labelAt > 0.045f) Paint(s);
+            // TextMesh renders with the font's own material, which (unlike the panel/frame's fog-aware
+            // Standard-shader materials) never samples RenderSettings.fog - so without this the gate's value
+            // text stayed fully legible out past where the gate itself had faded into the fog and wasn't
+            // visible yet. Fading the label's alpha by the same linear-fog distance keeps it appearing only
+            // once the gate it belongs to is actually visible.
+            var lc = s.label.color; lc.a = FogVisibility(s.label.transform.position); s.label.color = lc;
+        }
+
+        static float FogVisibility(Vector3 worldPos)
+        {
+            if (!RenderSettings.fog) return 1f;
+            var cam = Camera.main;
+            if (cam == null) return 1f;
+            float start = RenderSettings.fogStartDistance, end = RenderSettings.fogEndDistance;
+            if (end <= start) return 1f;
+            float dist = Vector3.Distance(cam.transform.position, worldPos);
+            return 1f - Mathf.Clamp01((dist - start) / (end - start));
         }
 
         void Paint(Side s)
