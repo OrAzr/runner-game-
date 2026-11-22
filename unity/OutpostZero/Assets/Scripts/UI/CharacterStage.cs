@@ -1,0 +1,93 @@
+using UnityEngine;
+
+namespace OutpostZero
+{
+    public struct HeroSlot
+    {
+        public string name, role, weapon, special;
+        public bool playable;
+    }
+
+    /// <summary>Lit pedestal and a Rook built with RookAvatar. Spin is driven by the select screen.</summary>
+    public class CharacterStage : MonoBehaviour
+    {
+        public const string PrefKey = "outpostzero.hero";
+        public static readonly HeroSlot[] Roster =
+        {
+            new HeroSlot { name = "ROOK", role = "COMMANDER", weapon = "ASSAULT RIFLE", special = "SHIELD WALL", playable = true },
+            new HeroSlot { name = "SCOUT", role = "LOCKED", weapon = "—", special = "COMING SOON", playable = false },
+            new HeroSlot { name = "HEAVY", role = "LOCKED", weapon = "—", special = "COMING SOON", playable = false }
+        };
+
+        Transform spin;
+        GameObject model;
+        float yaw = 25f;
+        float yawVel = 18f;
+        bool dragging;
+
+        public static int SavedIndex()
+        {
+            int i = PlayerPrefs.GetInt(PrefKey, 0);
+            if (i < 0 || i >= Roster.Length || !Roster[i].playable) return 0;
+            return i;
+        }
+
+        public static void Remember(int index)
+        {
+            PlayerPrefs.SetInt(PrefKey, index);
+            PlayerPrefs.Save();
+        }
+
+        public void Build()
+        {
+            var pad = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.08f, 0f), new Vector3(1.35f, 0.08f, 1.35f), Prims.Mat(Palette.Gunmetal));
+            pad.transform.localRotation = Quaternion.identity;
+            var trim = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.03f, 0.95f), Prims.Mat(Palette.TealDark));
+            trim.transform.localRotation = Quaternion.identity;
+            var pivot = new GameObject("Spin");
+            spin = pivot.transform;
+            spin.SetParent(transform, false);
+            spin.localPosition = new Vector3(0f, 0.2f, 0f);
+            gameObject.SetActive(false);
+        }
+
+        public void Show(int index)
+        {
+            gameObject.SetActive(true);
+            if (model != null) Destroy(model);
+            bool locked = index < 0 || index >= Roster.Length || !Roster[index].playable;
+            var holder = new GameObject("Preview");
+            model = holder;
+            holder.transform.SetParent(spin, false);
+            RookAvatar.Build(holder.transform, locked);
+            Place();
+        }
+
+        public void Hide() { gameObject.SetActive(false); }
+
+        public void BeginDrag() { dragging = true; yawVel = 0f; }
+        public void Drag(float degrees) { yaw += degrees; yawVel = degrees / Mathf.Max(0.01f, Time.deltaTime); }
+        public void EndDrag() { dragging = false; }
+
+        void Update()
+        {
+            if (!gameObject.activeSelf) return;
+            if (!dragging)
+            {
+                yaw += yawVel * Time.deltaTime;
+                yawVel = Mathf.Lerp(yawVel, 18f, 1f - Mathf.Exp(-1.4f * Time.deltaTime));
+            }
+            if (spin != null) spin.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            Place();
+        }
+
+        void Place()
+        {
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 focus = cam.transform.position + cam.transform.forward * 7.2f;
+            transform.position = focus + Vector3.down * 0.85f;
+            transform.rotation = Quaternion.identity;
+        }
+    }
+}

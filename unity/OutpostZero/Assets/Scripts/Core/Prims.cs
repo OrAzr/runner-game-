@@ -7,8 +7,9 @@ namespace OutpostZero
     public static class Prims
     {
         static readonly Dictionary<Color, Material> cache = new Dictionary<Color, Material>();
-        static Shader litShader, unlitShader, errorShader;
-        static Material builtinFallback;
+        static Shader litShader, unlitShader, additiveShader, errorShader;
+        static Material builtinFallback, additiveMat;
+        static Texture2D softCircle;
         static bool missingShaderLogged;
 
         /// <summary>First shader that exists. Never returns a shader that would make new Material throw; logs once if every name misses.</summary>
@@ -68,6 +69,59 @@ namespace OutpostZero
             if (unlitShader == null)
                 unlitShader = FindShader("Universal Render Pipeline/Unlit", "Unlit/Color", "Sprites/Default", "Legacy Shaders/Diffuse", "Standard");
             return MaterialFor(unlitShader, c) ?? builtinFallback;
+        }
+
+        /// <summary>One shared additive material. Texture is generated here, never loaded from the project.</summary>
+        public static Material SharedAdditive()
+        {
+            if (additiveMat != null) return additiveMat;
+            if (additiveShader == null)
+                additiveShader = FindShader(
+                    "Legacy Shaders/Particles/Additive",
+                    "Particles/Additive",
+                    "Mobile/Particles/Additive",
+                    "Legacy Shaders/Particles/Alpha Blended",
+                    "Particles/Standard Unlit",
+                    "Universal Render Pipeline/Particles/Unlit",
+                    "Sprites/Default",
+                    "Unlit/Color");
+            additiveMat = MaterialFor(additiveShader, Color.white);
+            if (additiveMat == null) return builtinFallback;
+            var tex = SoftCircle();
+            if (tex != null) additiveMat.SetTexture("_MainTex", tex);
+            additiveMat.SetColor("_TintColor", new Color(1f, 1f, 1f, 0.8f));
+            additiveMat.SetColor("_Color", Color.white);
+            return additiveMat;
+        }
+
+        public static string ShaderName(Material m)
+        {
+            if (m == null || m.shader == null) return "null";
+            return m.shader.name;
+        }
+
+        static Texture2D SoftCircle()
+        {
+            if (softCircle != null) return softCircle;
+            const int n = 64;
+            softCircle = new Texture2D(n, n, TextureFormat.RGBA32, false);
+            softCircle.wrapMode = TextureWrapMode.Clamp;
+            softCircle.filterMode = FilterMode.Bilinear;
+            var px = new Color[n * n];
+            float h = (n - 1) * 0.5f;
+            for (int y = 0; y < n; y++)
+            {
+                for (int x = 0; x < n; x++)
+                {
+                    float dx = (x - h) / h, dy = (y - h) / h;
+                    float a = Mathf.Clamp01(1f - Mathf.Sqrt(dx * dx + dy * dy));
+                    a *= a;
+                    px[y * n + x] = new Color(1f, 1f, 1f, a);
+                }
+            }
+            softCircle.SetPixels(px);
+            softCircle.Apply(false, true);
+            return softCircle;
         }
 
         static void MakeTransparent(Material m)
