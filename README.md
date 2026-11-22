@@ -41,3 +41,7 @@ npx esbuild src/main.js --bundle --minify --format=iife --target=es2020 --outfil
 ```
 
 Regenerate the wav files with `python3 audio-src/synth.py audio/wav` (needs numpy and scipy).
+
+## Credits
+
+Weapon models (rifle, shotgun, flamethrower) generated with [Meshy AI](https://www.meshy.ai/).
