@@ -1,0 +1,76 @@
+using UnityEngine;
+
+namespace OutpostZero
+{
+    /// <summary>Loads the Meshy weapon FBX models from Resources, wiring a runtime material (Standard shader,
+    /// never the FBX-imported one) so the look does not depend on import settings. Callers fall back to the
+    /// code-built primitive guns when a model is missing, so a partial Resources folder never breaks a weapon.</summary>
+    public static class WeaponModels
+    {
+        const string ResourceRoot = "Models/Weapons/";
+        static Shader standardShader;
+        static bool shaderMissingLogged;
+
+        /// <summary>Instantiates the named model under parent, scaled so its long axis equals targetLength, with
+        /// its texture applied via a freshly made Standard material (never the FBX-imported one). tipLocal comes
+        /// back as the muzzle-end position in parent's local space, for placing extras like a nozzle glow.
+        /// Returns null (and destroys anything it created) if the model or its renderers are missing.</summary>
+        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal)
+        {
+            tipLocal = new Vector3(0f, 0f, targetLength * 0.5f);
+            var prefab = Resources.Load<GameObject>(ResourceRoot + resourceName);
+            if (prefab == null) return null;
+
+            var go = Object.Instantiate(prefab);
+            go.name = resourceName;
+            go.transform.SetParent(null, false);
+            go.transform.position = Vector3.zero;
+            go.transform.rotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one;
+
+            var renderers = go.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) { Object.Destroy(go); return null; }
+
+            var bounds = renderers[0].bounds;
+            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+
+            var mat = MakeMaterial(resourceName);
+            for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
+
+            // Anchor carries the orientation/scale; go is nudged (while still unrotated) so the mesh's own
+            // center/base sit on the anchor's origin, so that offset is always expressed in the mesh's own
+            // axes rather than the rotated ones.
+            var anchor = new GameObject(resourceName + "Anchor");
+            anchor.transform.SetParent(parent, false);
+            go.transform.SetParent(anchor.transform, false);
+            go.transform.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
+
+            // Measured on the source mesh (see Tools notes): the long side runs along local X with the
+            // muzzle at its negative end, so +90 about Y carries -X to this project's +Z forward convention.
+            float rawLength = Mathf.Max(0.001f, bounds.size.x);
+            float scale = targetLength / rawLength;
+            anchor.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            anchor.transform.localScale = Vector3.one * scale;
+
+            float tipHeight = bounds.size.y * 0.5f * scale;
+            tipLocal = new Vector3(0f, tipHeight, targetLength * 0.5f);
+            return anchor;
+        }
+
+        static Material MakeMaterial(string resourceName)
+        {
+            if (standardShader == null) standardShader = Shader.Find("Standard");
+            if (standardShader == null)
+            {
+                if (!shaderMissingLogged) { shaderMissingLogged = true; Debug.LogError("[Outpost Zero] Standard shader missing; weapon models will use the Prims fallback material."); }
+                return Prims.Mat(Color.white, true);
+            }
+            var mat = new Material(standardShader);
+            var tex = Resources.Load<Texture2D>(ResourceRoot + resourceName);
+            if (tex != null) mat.mainTexture = tex;
+            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.35f);
+            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.1f);
+            return mat;
+        }
+    }
+}

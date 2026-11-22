@@ -62,6 +62,8 @@ namespace OutpostZero
         static Material Dark() { return Prims.Mat(Steel); }
         static Material Metal() { return Prims.Mat(Palette.Gunmetal); }
 
+        const float RifleModelLength = 0.58f, ShotgunModelLength = 0.52f, FlamethrowerModelLength = 0.6f;
+
         static GameObject Barrel(Transform parent, Vector3 pos, float radius, float length, Material mat)
         {
             var go = Prims.Part(PrimitiveType.Cylinder, parent, pos, new Vector3(radius, length * 0.5f, radius), mat);
@@ -71,6 +73,9 @@ namespace OutpostZero
 
         GameObject BuildRifle(Transform root)
         {
+            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength, out _);
+            if (model != null) return model;
+
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
             Prims.Box(t, new Vector3(0f, 0f, -0.08f), new Vector3(0.07f, 0.08f, 0.22f), Steel);
@@ -82,6 +87,9 @@ namespace OutpostZero
 
         GameObject BuildShotgun(Transform root)
         {
+            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength, out _);
+            if (model != null) return model;
+
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
             Prims.Box(t, new Vector3(0f, 0f, -0.1f), new Vector3(0.08f, 0.09f, 0.2f), Palette.Orange);
@@ -93,6 +101,14 @@ namespace OutpostZero
 
         GameObject BuildFlamethrower(Transform root)
         {
+            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength, out var tip);
+            if (model != null)
+            {
+                var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
+                pilot = glow.transform;
+                return model;
+            }
+
             var g = new GameObject("Flamethrower"); g.transform.SetParent(root, false);
             var t = g.transform;
             Prims.Box(t, new Vector3(0f, 0f, -0.02f), new Vector3(0.1f, 0.1f, 0.22f), Palette.Gunmetal);
