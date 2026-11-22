@@ -13,7 +13,16 @@ namespace OutpostZero
         public Transform Cape;
         public WeaponVisual Weapon;
 
+        /// <summary>Swap point for the upcoming rigged Meshy Rook: HeroRook and CharacterStage only ever call
+        /// this factory and read Root/Chest/ArmL/ArmR/Cape/Weapon plus Tick(), so a follow-up body (e.g. a
+        /// branch here that loads a rigged FBX via Resources.Load and drives it with an Animator) can replace
+        /// BuildPrimitive() below without touching either caller, as long as it keeps populating those same fields.</summary>
         public static RookAvatar Build(Transform parent, bool silhouette)
+        {
+            return BuildPrimitive(parent, silhouette);
+        }
+
+        static RookAvatar BuildPrimitive(Transform parent, bool silhouette)
         {
             var avatar = new RookAvatar();
             var go = new GameObject("Rook");
