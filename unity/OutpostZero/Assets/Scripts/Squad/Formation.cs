@@ -2,22 +2,30 @@ using UnityEngine;
 
 namespace OutpostZero
 {
-    /// <summary>Loose swarm: slot 0 is the hero just ahead, everyone else drifts around a breathing phyllotaxis cloud.</summary>
+    /// <summary>Orderly phalanx: slot 0 is the hero just ahead; everyone else fills rows behind him, widest
+    /// row first. Deliberately has no per-frame oscillation of its own (the old version layered three
+    /// independent sine waves with per-index phases, which read as a jittery blob rather than a formation) -
+    /// Soldier.Tick is solely responsible for smoothing the walk from slot to slot.</summary>
     public static class Formation
     {
         public const float Spacing = 0.42f;
-        public static Vector3 Offset(int i, float time, float steer)
+
+        /// <summary>Row i sits behind the hero; wider squads get wider rows (fewer, deeper rows) instead of
+        /// an ever-widening single rank, so the block stays roughly road-width even at MaxVisible.</summary>
+        public static Vector3 Offset(int i, int visibleCount, float steer)
         {
-            float sway = Mathf.Sin(time * 1.35f + i * 0.8f) * 0.16f;
-            float flow = Mathf.Cos(time * 1.05f + i * 0.45f) * 0.12f;
-            if (i == 0) return new Vector3(sway * 0.25f, 0, 0.15f);
-            float a = i * 2.399963f + Mathf.Sin(time * 0.75f + i * 1.3f) * 0.42f;
-            float breathe = 1f + 0.09f * Mathf.Sin(time * 1.25f + i * 0.6f);
-            float r = (Spacing * Mathf.Sqrt(i) + 0.16f) * breathe;
-            float x = Mathf.Cos(a) * r + sway - steer * Mathf.Min(0.18f, i * 0.01f);
-            float z = -(Mathf.Abs(Mathf.Sin(a)) * r * 0.85f + 0.55f + (i % 4) * 0.1f + flow);
-            return new Vector3(x, 0, z);
+            if (i == 0) return new Vector3(0f, 0f, 0.15f);
+
+            int perRow = Mathf.Clamp(Mathf.CeilToInt(Mathf.Sqrt(Mathf.Max(1, visibleCount))), 4, 10);
+            int idx = i - 1;
+            int row = idx / perRow, col = idx % perRow;
+            int colsInThisRow = Mathf.Min(perRow, Mathf.Max(1, visibleCount - 1) - row * perRow);
+
+            float x = (col - (colsInThisRow - 1) * 0.5f) * Spacing - steer * Mathf.Min(0.18f, row * 0.02f);
+            float z = -(0.85f + row * Spacing * 1.3f);
+            return new Vector3(x, 0f, z);
         }
+
         public static float Radius(int visible) => Spacing * Mathf.Sqrt(Mathf.Max(1, visible)) + 0.4f;
     }
 }

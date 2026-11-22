@@ -46,7 +46,10 @@ namespace OutpostZero
                 float err = input.TargetX - p.x;
                 float desired = Mathf.Clamp(err * 8f, -10f, 10f);
                 vx = Mathf.Lerp(vx, desired, Mathf.Min(1f, dt * 12f));
-                p.x = Mathf.Clamp(p.x + vx * dt, -level.roadHalfWidth + 0.45f, level.roadHalfWidth - 0.45f);
+                // Margin scales with Rook's visual size (RookAvatar.GameplayScale) so his wider silhouette at
+                // 2.5x still clears the road edge/gate posts instead of clipping through them at full steer.
+                float edgeMargin = 0.45f * RookAvatar.GameplayScale;
+                p.x = Mathf.Clamp(p.x + vx * dt, -level.roadHalfWidth + edgeMargin, level.roadHalfWidth - edgeMargin);
                 lean = Mathf.Lerp(lean, Mathf.Clamp(-vx * 3.2f, -18f, 18f), Mathf.Min(1f, dt * 9f));
                 transform.position = p;
             }
@@ -63,24 +66,28 @@ namespace OutpostZero
         void SyncBodies(bool running, float dt)
         {
             int vis = Mathf.Min(Count, MaxVisible);
-            while (soldiers.Count < Mathf.Max(1, vis)) soldiers.Add(soldiers.Count == 0 ? null : SpawnSoldier(soldiers.Count));
+            while (soldiers.Count < Mathf.Max(1, vis)) soldiers.Add(soldiers.Count == 0 ? null : SpawnSoldier(soldiers.Count, vis));
             for (int i = soldiers.Count - 1; i >= Mathf.Max(1, vis); i--) { if (soldiers[i]) Destroy(soldiers[i].gameObject); soldiers.RemoveAt(i); }
             float hw = level.roadHalfWidth - 0.3f;
             for (int i = 1; i < soldiers.Count; i++)
             {
-                var slot = transform.position + Formation.Offset(i, Time.time, vx);
+                var slot = transform.position + Formation.Offset(i, vis, vx);
                 slot.x = Mathf.Clamp(slot.x, -hw, hw);
                 soldiers[i].Tick(slot, running, dt, lean);
             }
-            Rook.Body.localPosition = Formation.Offset(0, Time.time, vx) + Vector3.up * (running ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0);
+            // The rigged model plays its own Run_and_Shoot cycle, so the old procedural hop (added on top of
+            // every frame's pose) doubled up with the clip's own motion and read as a visible mid-air bounce;
+            // the primitive fallback has no locomotion animation of its own, so it still gets the bob.
+            float bob = running && !Rook.IsRigged ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0f;
+            Rook.Body.localPosition = Formation.Offset(0, vis, vx) + Vector3.up * bob;
             Rook.Body.gameObject.SetActive(Count > 0);
         }
 
-        Soldier SpawnSoldier(int i)
+        Soldier SpawnSoldier(int i, int vis)
         {
             var s = Soldier.Create(transform.parent);
             s.ShowWeapon(Shooter != null ? Shooter.Current : WeaponType.AssaultRifle);
-            s.transform.position = transform.position + Formation.Offset(i, Time.time, vx) + Vector3.back * 1.8f;
+            s.transform.position = transform.position + Formation.Offset(i, vis, vx) + Vector3.back * 1.8f;
             return s;
         }
 

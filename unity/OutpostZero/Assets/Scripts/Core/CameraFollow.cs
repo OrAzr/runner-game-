@@ -6,8 +6,11 @@ namespace OutpostZero
     public class CameraFollow : MonoBehaviour
     {
         public Transform target;
-        public Vector3 offset = new Vector3(0, 15f, -15.5f);
+        // Raised/pulled back a bit and the look-at point lifted (see lookHeight) from the pre-2.5x-scale
+        // values so the taller rigged hero (RookAvatar.GameplayScale) keeps full headroom in frame.
+        public Vector3 offset = new Vector3(0, 16.5f, -16.8f);
         public float lookAhead = 6.5f;
+        public float lookHeight = 1.1f;
         public float xFollow = 0.42f;
         float shake;
         Vector3 smooth;
@@ -26,7 +29,7 @@ namespace OutpostZero
             shake = Mathf.Max(0f, shake - Time.deltaTime * 2.2f);
             Vector3 jitter = shake > 0.01f ? Random.insideUnitSphere * shake : Vector3.zero;
             transform.position = smooth + jitter;
-            transform.LookAt(new Vector3(Mathf.Lerp(smooth.x, t.x * 0.75f, 0.5f), 0.5f, t.z + lookAhead));
+            transform.LookAt(new Vector3(Mathf.Lerp(smooth.x, t.x * 0.75f, 0.5f), lookHeight, t.z + lookAhead));
         }
     }
 }

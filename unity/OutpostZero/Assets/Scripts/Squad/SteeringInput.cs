@@ -27,13 +27,16 @@ namespace OutpostZero
             }
             if (down && !GameUI.PointerOverButton(px)) { dragging = true; startPointerX = px; startTarget = TargetX; }
             if (!held) dragging = false;
+            // Margin scales with Rook's visual size (RookAvatar.GameplayScale) so the steer target can't drag
+            // him wider than his own on-screen body at the edge of the road.
+            float edgeMargin = 0.6f * RookAvatar.GameplayScale;
             if (dragging)
             {
                 float dx = (px - startPointerX) / Screen.width;
-                TargetX = Mathf.Clamp(startTarget + dx * halfWidth * sensitivity, -halfWidth + 0.6f, halfWidth - 0.6f);
+                TargetX = Mathf.Clamp(startTarget + dx * halfWidth * sensitivity, -halfWidth + edgeMargin, halfWidth - edgeMargin);
             }
             float k = Input.GetAxisRaw("Horizontal");
-            if (Mathf.Abs(k) > 0.1f) TargetX = Mathf.Clamp(TargetX + k * 8f * Time.deltaTime, -halfWidth + 0.6f, halfWidth - 0.6f);
+            if (Mathf.Abs(k) > 0.1f) TargetX = Mathf.Clamp(TargetX + k * 8f * Time.deltaTime, -halfWidth + edgeMargin, halfWidth - edgeMargin);
             if (Input.GetKeyDown(KeyCode.Space)) GetComponent<HeroRook>()?.ActivateShield();
         }
     }

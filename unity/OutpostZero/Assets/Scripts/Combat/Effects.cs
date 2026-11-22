@@ -137,12 +137,17 @@ namespace OutpostZero
             {
                 for (int i = 0; i < numbers.Length; i++)
                 {
-                    numbers[i] = Prims.Label3D(null, "", Vector3.zero, 0.7f, Color.white);
+                    numbers[i] = Prims.Label3D(null, "", Vector3.zero, 0.5f, Color.white);
                     numbers[i].gameObject.SetActive(false);
                 }
             }
-            var tm = numbers[numberCursor]; numberLife[numberCursor] = 0.55f; numberCursor = (numberCursor + 1) % numbers.Length;
-            tm.gameObject.SetActive(true); tm.text = text; tm.color = c; tm.transform.position = pos;
+            var tm = numbers[numberCursor];
+            // Hit positions sit dead ahead in the hero's own firing lane, so a run of hits used to stack
+            // every number right over his line of fire. Spreading them to alternating sides keeps the lane
+            // clear while still reading as "numbers near the hit".
+            float side = (numberCursor % 2 == 0 ? -1f : 1f) * (0.3f + (numberCursor % 3) * 0.12f);
+            numberLife[numberCursor] = 0.55f; numberCursor = (numberCursor + 1) % numbers.Length;
+            tm.gameObject.SetActive(true); tm.text = text; tm.color = c; tm.transform.position = pos + Vector3.right * side;
         }
 
         public static void TickNumbers()

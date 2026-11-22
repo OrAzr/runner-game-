@@ -24,6 +24,9 @@ namespace OutpostZero
         int activeIndex = -1;
         float lockUntil;
 
+        Transform hips;
+        float hipsBaseY;
+
         /// <summary>Loads every clip under Resources/Models/Hero/rook and wires one mixer input per clip.
         /// Returns false (nothing built) if the resource folder has no clips, so the caller can skip this
         /// component entirely.</summary>
@@ -52,6 +55,18 @@ namespace OutpostZero
             }
             graph.Play();
             return true;
+        }
+
+        /// <summary>The Mixamo clips bake running's footstep bob straight into mixamorig:Hips' Y translation
+        /// (not into a root node we could strip at import), so without this the whole rigged body visibly
+        /// hops with every stride on top of whatever HeroRook/SquadController add on their own. Locking Hips'
+        /// local Y to its value right after Build() (effectively bind pose, before any clip has been evaluated)
+        /// removes that bob every frame while leaving X/Z and all rotations - so leg/arm/torso motion - untouched.
+        /// Runtime-only and independent of import settings, so it's safe to reason about without opening Unity.</summary>
+        public void LockHipsHeight(Transform hipsBone)
+        {
+            hips = hipsBone;
+            if (hips != null) hipsBaseY = hips.localPosition.y;
         }
 
         int FindIndex(string contains)
@@ -97,6 +112,16 @@ namespace OutpostZero
                 float t = loopFlag[i] ? localTime[i] % len : Mathf.Min(localTime[i], len);
                 clipPlayables[i].SetTime(t);
             }
+        }
+
+        /// <summary>Runs after the PlayableGraph has evaluated this frame's pose (Unity updates bound
+        /// AnimationPlayableOutputs between Update and LateUpdate), so this is the first point a correction
+        /// to the posed Hips bone sticks instead of being immediately overwritten.</summary>
+        void LateUpdate()
+        {
+            if (hips == null) return;
+            var p = hips.localPosition;
+            hips.localPosition = new Vector3(p.x, hipsBaseY, p.z);
         }
 
         void OnDestroy()
