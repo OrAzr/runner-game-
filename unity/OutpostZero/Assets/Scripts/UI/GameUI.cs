@@ -101,7 +101,9 @@ namespace OutpostZero
 
         void BuildSelect(Transform root)
         {
-            select = Img("Select", root, new Color(0.04f, 0.06f, 0.07f, 0.88f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero).gameObject;
+            var selectImage = Img("Select", root, new Color(0.04f, 0.06f, 0.07f, 0f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            selectImage.raycastTarget = true;
+            select = selectImage.gameObject;
             Txt("Heading", select.transform, "CHOOSE YOUR HERO", 64, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -160), new Vector2(0, -40));
             var zone = Img("ModelZone", select.transform, new Color(0, 0, 0, 0.01f), new Vector2(0.16f, 0.36f), new Vector2(0.84f, 0.72f), Vector2.zero, Vector2.zero);
             modelZone = zone.rectTransform;

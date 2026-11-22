@@ -19,7 +19,7 @@ namespace OutpostZero
             new HeroSlot { name = "HEAVY", role = "LOCKED", weapon = "—", special = "COMING SOON", playable = false }
         };
 
-        Transform spin;
+        Transform spin, backdrop, rim;
         GameObject model;
         float yaw = 25f;
         float yawVel = 18f;
@@ -40,6 +40,10 @@ namespace OutpostZero
 
         public void Build()
         {
+            var back = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 1.2f, -2.4f), new Vector3(48f, 64f, 1f), Prims.Unlit(new Color(0.04f, 0.06f, 0.07f)));
+            backdrop = back.transform;
+            var glow = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 1.35f, -1.15f), new Vector3(4.2f, 5.4f, 1f), Prims.Unlit(new Color(0.1f, 0.42f, 0.45f)));
+            rim = glow.transform;
             var pad = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.08f, 0f), new Vector3(1.35f, 0.08f, 1.35f), Prims.Mat(Palette.Gunmetal));
             pad.transform.localRotation = Quaternion.identity;
             var trim = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.03f, 0.95f), Prims.Mat(Palette.TealDark));
@@ -88,6 +92,21 @@ namespace OutpostZero
             Vector3 focus = cam.transform.position + cam.transform.forward * 7.2f;
             transform.position = focus + Vector3.down * 0.85f;
             transform.rotation = Quaternion.identity;
+            Face(backdrop, 3.2f, 48f, 64f, 1.3f);
+            Face(rim, 1.35f, 4.2f, 5.4f, 1.45f);
+        }
+
+        void Face(Transform quad, float behind, float width, float height, float lift)
+        {
+            if (quad == null) return;
+            var cam = Camera.main;
+            if (cam == null) return;
+            Vector3 away = -cam.transform.forward;
+            quad.position = transform.position + away * behind + Vector3.up * lift;
+            Vector3 toCam = cam.transform.position - quad.position;
+            if (toCam.sqrMagnitude < 0.001f) return;
+            quad.rotation = Quaternion.LookRotation(toCam, cam.transform.up);
+            quad.localScale = new Vector3(width, height, 1f);
         }
     }
 }

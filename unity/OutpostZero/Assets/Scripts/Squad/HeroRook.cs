@@ -51,7 +51,7 @@ namespace OutpostZero
                 shieldWall.transform.localScale = new Vector3(squadRadius * 2 + 0.6f, 1.6f, 0.12f);
                 shieldWall.transform.position = new Vector3(transform.position.x, 0.8f, transform.position.z + 1.1f);
             }
-            bool running = GameManager.I != null && GameManager.I.State == GameState.Running;
+            bool running = GameManager.I != null && (GameManager.I.State == GameState.Running || GameManager.I.State == GameState.BossFight);
             float sway = Mathf.Sin(Time.time * (running ? 11f : 1.7f)) * (running ? 16f : 4f);
             if (armL != null) armL.localRotation = Quaternion.Euler(sway, 0f, 16f);
             if (armR != null) armR.localRotation = Quaternion.Euler(-sway * 0.35f, 0f, -10f);
