@@ -70,6 +70,7 @@ namespace OutpostZero
                 Vector3 m = squad.MuzzleOf(Random.Range(0, vis));
                 Effects.MuzzleFlash(m, Vector3.forward, w.tracer, shotgun ? 0.72f : 0.26f);
                 if (squad.Rook != null) squad.Rook.Kick(shotgun ? 1f : 0.35f);
+                if (shotgun && gm != null) gm.Shake(0.08f);
                 if (!shotgun && Random.value < 0.22f) Effects.Shell(m);
                 for (int p = 0; p < w.pellets; p++)
                 {

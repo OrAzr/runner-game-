@@ -16,7 +16,7 @@ namespace OutpostZero
         public virtual void TakeDamage(float amount, bool fromBullet = false)
         {
             if (!Alive) return;
-            hp -= amount; flash = 0.09f;
+            hp -= amount; flash = 0.08f;
             OnHit(fromBullet, amount);
             if (hp <= 0) { Alive = false; GameManager.I?.Unregister(this); Die(); }
         }

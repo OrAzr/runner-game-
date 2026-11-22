@@ -19,8 +19,9 @@ namespace OutpostZero
             new HeroSlot { name = "HEAVY", role = "LOCKED", weapon = "—", special = "COMING SOON", playable = false }
         };
 
-        Transform spin, backdrop, rim;
+        Transform spin, backdrop, rim, ring;
         GameObject model;
+        RookAvatar preview;
         float yaw = 25f;
         float yawVel = 18f;
         bool dragging;
@@ -48,6 +49,9 @@ namespace OutpostZero
             pad.transform.localRotation = Quaternion.identity;
             var trim = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.18f, 0f), new Vector3(0.95f, 0.03f, 0.95f), Prims.Mat(Palette.TealDark));
             trim.transform.localRotation = Quaternion.identity;
+            var lightRing = Prims.Part(PrimitiveType.Cylinder, transform, new Vector3(0f, 0.22f, 0f), new Vector3(1.2f, 0.015f, 1.2f), Prims.Unlit(new Color(0.25f, 0.95f, 0.9f)));
+            lightRing.transform.localRotation = Quaternion.identity;
+            ring = lightRing.transform;
             var pivot = new GameObject("Spin");
             spin = pivot.transform;
             spin.SetParent(transform, false);
@@ -63,7 +67,8 @@ namespace OutpostZero
             var holder = new GameObject("Preview");
             model = holder;
             holder.transform.SetParent(spin, false);
-            RookAvatar.Build(holder.transform, locked);
+            var built = RookAvatar.Build(holder.transform, locked);
+            preview = locked ? null : built;
             Place();
             FaceBackdrop();
         }
@@ -83,6 +88,12 @@ namespace OutpostZero
                 yawVel = Mathf.Lerp(yawVel, 18f, 1f - Mathf.Exp(-1.4f * Time.deltaTime));
             }
             if (spin != null) spin.localRotation = Quaternion.Euler(0f, yaw, 0f);
+            if (preview != null) preview.Tick(Time.deltaTime, false);
+            if (ring != null)
+            {
+                float pulse = 1f + 0.035f * Mathf.Sin(Time.time * 2.2f);
+                ring.localScale = new Vector3(1.2f * pulse, 0.015f, 1.2f * pulse);
+            }
             Place();
             FaceBackdrop();
         }
