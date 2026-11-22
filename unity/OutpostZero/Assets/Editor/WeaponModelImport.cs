@@ -11,8 +11,9 @@ namespace OutpostZero.EditorTools
         void OnPreprocessModel()
         {
             if (!assetPath.Replace('\\', '/').Contains("Resources/Models/Weapons/")) return;
-            if (assetImporter is ModelImporter importer)
-                importer.materialImportMode = ModelImporterMaterialImportMode.None;
+            if (!(assetImporter is ModelImporter importer)) return;
+            importer.materialImportMode = ModelImporterMaterialImportMode.None;
+            importer.animationType = ModelImporterAnimationType.None;
         }
     }
 }

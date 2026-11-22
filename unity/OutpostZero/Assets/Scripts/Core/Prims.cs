@@ -145,6 +145,36 @@ namespace OutpostZero
 
         public static GameObject Box(Transform p, Vector3 pos, Vector3 scale, Color c) => Part(PrimitiveType.Cube, p, pos, scale, Mat(c));
 
+        /// <summary>World-space bounds across every renderer under root, safe to call the instant after
+        /// Instantiate. SkinnedMeshRenderer.bounds reflects the last-evaluated pose, which may still be stale
+        /// (or default) before the skin has been sampled once; this instead transforms localBounds (the
+        /// authored, pose-independent bind-pose box) by the renderer's current matrix.</summary>
+        public static Bounds? CombinedBounds(Transform root)
+        {
+            var renderers = root.GetComponentsInChildren<Renderer>();
+            if (renderers.Length == 0) return null;
+            Bounds result = default;
+            bool has = false;
+            for (int i = 0; i < renderers.Length; i++)
+            {
+                Bounds b;
+                if (renderers[i] is SkinnedMeshRenderer smr)
+                {
+                    var lb = smr.localBounds;
+                    var m = smr.transform.localToWorldMatrix;
+                    Vector3 c = lb.center, e = lb.extents;
+                    b = new Bounds(m.MultiplyPoint3x4(c), Vector3.zero);
+                    for (int sx = -1; sx <= 1; sx += 2)
+                        for (int sy = -1; sy <= 1; sy += 2)
+                            for (int sz = -1; sz <= 1; sz += 2)
+                                b.Encapsulate(m.MultiplyPoint3x4(c + Vector3.Scale(e, new Vector3(sx, sy, sz))));
+                }
+                else b = renderers[i].bounds;
+                if (!has) { result = b; has = true; } else result.Encapsulate(b);
+            }
+            return has ? result : (Bounds?)null;
+        }
+
         public static Font UIFont()
         {
             Font f = null;

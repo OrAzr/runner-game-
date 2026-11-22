@@ -12,14 +12,91 @@ namespace OutpostZero
         public Transform ArmR;
         public Transform Cape;
         public WeaponVisual Weapon;
+        public HeroAnimator Anim;
 
-        /// <summary>Swap point for the upcoming rigged Meshy Rook: HeroRook and CharacterStage only ever call
-        /// this factory and read Root/Chest/ArmL/ArmR/Cape/Weapon plus Tick(), so a follow-up body (e.g. a
-        /// branch here that loads a rigged FBX via Resources.Load and drives it with an Animator) can replace
-        /// BuildPrimitive() below without touching either caller, as long as it keeps populating those same fields.</summary>
+        const float RiggedTargetHeight = 1.47f; // matches the primitive body's own height (1.05 scale * ~1.4m)
+
+        /// <summary>HeroRook and CharacterStage only ever call this factory and read Root/Chest/ArmL/ArmR/
+        /// Cape/Weapon/Anim plus Tick(). Tries the rigged Meshy FBX first and falls back to the primitive body
+        /// if Resources.Load misses or the model is missing an Animator/mesh, so a partial checkout never
+        /// breaks the hero.</summary>
         public static RookAvatar Build(Transform parent, bool silhouette)
         {
-            return BuildPrimitive(parent, silhouette);
+            return BuildRigged(parent, silhouette) ?? BuildPrimitive(parent, silhouette);
+        }
+
+        static RookAvatar BuildRigged(Transform parent, bool silhouette)
+        {
+            var prefab = Resources.Load<GameObject>("Models/Hero/rook");
+            if (prefab == null) return null;
+
+            var go = Object.Instantiate(prefab);
+            go.name = "Rook";
+            var root = go.transform;
+            root.SetParent(parent, false);
+
+            var animator = go.GetComponentInChildren<Animator>();
+            var skinned = go.GetComponentInChildren<SkinnedMeshRenderer>();
+            if (animator == null || skinned == null) { Object.Destroy(go); return null; }
+
+            var bounds = Prims.CombinedBounds(root);
+            if (bounds == null) { Object.Destroy(go); return null; }
+            root.localScale = Vector3.one * (RiggedTargetHeight / Mathf.Max(0.01f, bounds.Value.size.y));
+
+            var mat = RiggedMaterial();
+            var renderers = go.GetComponentsInChildren<Renderer>();
+            for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
+
+            // Weapon: hold this project's known +Z-forward convention rather than the hand bone's own
+            // rest-pose rotation (a Mixamo A-pose hand is angled down and across the body, not "forward").
+            // SetParent(.., true) bakes today's world pose as a fixed local offset under the hand bone, so
+            // the weapon still rides along with the hand's subsequent animated position and rotation changes.
+            var handBone = FindDeep(root, "mixamorig:RightHand");
+            var socket = new GameObject("WeaponSocket").transform;
+            socket.SetPositionAndRotation((handBone != null ? handBone.position : root.position) + root.forward * 0.03f, root.rotation);
+            socket.SetParent(handBone != null ? handBone : root, true);
+
+            var headBone = FindDeep(root, "mixamorig:Head");
+            if (headBone != null)
+            {
+                var glow = Prims.Part(PrimitiveType.Sphere, root, Vector3.zero, Vector3.one * 0.05f, Prims.Unlit(new Color(0.3f, 1f, 0.95f)));
+                glow.transform.position = headBone.position + root.forward * 0.11f + root.up * 0.03f;
+                glow.transform.SetParent(headBone, true);
+            }
+
+            var avatar = new RookAvatar { Root = root };
+            avatar.Weapon = WeaponVisual.Create(socket, true, Vector3.zero);
+            var anim = go.AddComponent<HeroAnimator>();
+            avatar.Anim = anim.Build(animator) ? anim : null;
+            if (avatar.Anim == null) Object.Destroy(anim);
+
+            if (silhouette) TintDark(root);
+            return avatar;
+        }
+
+        static Transform FindDeep(Transform root, string name)
+        {
+            if (root.name == name) return root;
+            for (int i = 0; i < root.childCount; i++)
+            {
+                var found = FindDeep(root.GetChild(i), name);
+                if (found != null) return found;
+            }
+            return null;
+        }
+
+        static Material RiggedMaterial()
+        {
+            var shader = Prims.FindShader("Standard");
+            Material mat = shader != null ? new Material(shader) : Prims.Mat(Color.white, true);
+            var tex = Resources.Load<Texture2D>("Models/Hero/rook");
+            if (tex != null && mat != null) mat.mainTexture = tex;
+            if (mat != null)
+            {
+                if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.3f);
+                if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.05f);
+            }
+            return mat;
         }
 
         static RookAvatar BuildPrimitive(Transform parent, bool silhouette)
@@ -142,7 +219,14 @@ namespace OutpostZero
             if (Cape != null)
                 Cape.localRotation = Quaternion.Euler(running ? Mathf.Sin(Time.time * 9f) * 16f : 0f, 0f, 0f);
             if (Weapon != null) Weapon.Tick(dt);
+            // The squad is effectively always firing while running (AutoShooter has no "holding fire" state),
+            // so Run_and_Shoot covers both; Running is loaded and available for a future non-firing state.
+            if (Anim != null) Anim.Play(running ? "Run_and_Shoot" : "Idle", true);
         }
+
+        /// <summary>One-shot reaction clips. No-op on the primitive body (Anim is null) or if a clip is missing.</summary>
+        public void PlayHitReaction() { Anim?.TriggerOnce("Gunshot"); }
+        public void PlayDeath() { Anim?.TriggerOnce("Dead"); }
 
         static GameObject Box(Transform parent, Vector3 pos, Vector3 scale, Material mat)
         {
