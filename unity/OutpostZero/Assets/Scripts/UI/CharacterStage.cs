@@ -111,11 +111,13 @@ namespace OutpostZero
             if (stageCam == null || heroRoot == null) return;
             var savedYaw = spin.localRotation;
             spin.localRotation = Quaternion.identity;
-            var renderers = heroRoot.GetComponentsInChildren<Renderer>();
+            // CombinedBounds uses SkinnedMeshRenderer.localBounds (not .bounds, which can still be the stale
+            // pre-skinning box this same frame) so this is safe to call immediately after the rigged Rook
+            // is instantiated, before the animation graph has evaluated a single frame.
+            var measured = Prims.CombinedBounds(heroRoot);
             spin.localRotation = savedYaw;
-            if (renderers.Length == 0) return;
-            var bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
+            if (measured == null) return;
+            var bounds = measured.Value;
 
             // The preview keeps spinning after this runs, so use the farthest-corner distance from the spin
             // axis (not just this one orientation's half-width) as the horizontal radius: that bounds the

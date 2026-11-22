@@ -129,7 +129,8 @@ namespace OutpostZero
             countPop = 1f;
             AudioManager.I?.Play(Sfx.SoldierLost, 0.75f, 1f, 0.06f);
             GameManager.I.Shake(0.15f);
-            if (Count <= 0) GameManager.I.EndRun(false);
+            Rook.PlayHitReaction();
+            if (Count <= 0) { Rook.PlayDeath(); GameManager.I.EndRun(false); }
         }
 
         public float TargetX { get => input.TargetX; set => input.TargetX = value; }
