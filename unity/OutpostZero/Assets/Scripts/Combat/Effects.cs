@@ -203,9 +203,10 @@ namespace OutpostZero
     /// <summary>Particle stream plus unlit mesh jets parented to a muzzle. Local space so it stays on the moving squad.</summary>
     public class FlameStream : MonoBehaviour
     {
-        ParticleSystem ps;
+        ParticleSystem ps, smoke;
         Transform[] jets;
         Renderer[] jetR;
+        Transform shimmer;
         bool playing;
         public string ShaderLabel { get; private set; } = "null";
 
@@ -255,6 +256,55 @@ namespace OutpostZero
             rend.minParticleSize = 0.01f;
             rend.maxParticleSize = 0.8f;
 
+            var smokeGo = new GameObject("Smoke");
+            smokeGo.transform.SetParent(transform, false);
+            smoke = smokeGo.AddComponent<ParticleSystem>();
+            smoke.Stop(true, ParticleSystemStopBehavior.StopEmittingAndClear);
+            var sm = smoke.main;
+            sm.playOnAwake = false;
+            sm.loop = true;
+            sm.startLifetime = 1.15f;
+            sm.startSpeed = 0.45f;
+            sm.startSize = new ParticleSystem.MinMaxCurve(0.22f, 0.48f);
+            sm.startColor = new Color(0.32f, 0.32f, 0.32f, 0.45f);
+            sm.simulationSpace = ParticleSystemSimulationSpace.Local;
+            sm.scalingMode = ParticleSystemScalingMode.Hierarchy;
+            sm.maxParticles = 80;
+            sm.gravityModifier = -0.35f;
+            var se = smoke.emission;
+            se.enabled = false;
+            se.rateOverTime = 16f;
+            var ss = smoke.shape;
+            ss.enabled = true;
+            ss.shapeType = ParticleSystemShapeType.Sphere;
+            ss.radius = 0.12f;
+            var smokeMat = mat != null ? new Material(mat) : Prims.Unlit(new Color(0.3f, 0.3f, 0.3f));
+            if (smokeMat != null)
+            {
+                smokeMat.SetColor("_Color", new Color(0.28f, 0.28f, 0.28f, 0.4f));
+                smokeMat.SetColor("_TintColor", new Color(0.28f, 0.28f, 0.28f, 0.4f));
+            }
+            var smokeRend = smokeGo.GetComponent<ParticleSystemRenderer>();
+            smokeRend.enabled = true;
+            smokeRend.renderMode = ParticleSystemRenderMode.Billboard;
+            smokeRend.alignment = ParticleSystemRenderSpace.View;
+            smokeRend.sharedMaterial = smokeMat;
+            smokeRend.shadowCastingMode = ShadowCastingMode.Off;
+            smokeRend.receiveShadows = false;
+
+            var heatMat = mat != null ? new Material(mat) : Prims.Unlit(new Color(1f, 0.45f, 0.1f, 0.25f));
+            if (heatMat != null)
+            {
+                heatMat.SetColor("_Color", new Color(1f, 0.45f, 0.12f, 0.22f));
+                heatMat.SetColor("_TintColor", new Color(1f, 0.45f, 0.12f, 0.22f));
+            }
+            var heat = Prims.Part(PrimitiveType.Quad, transform, new Vector3(0f, 0.05f, 1.2f), new Vector3(0.7f, 0.45f, 1f), heatMat);
+            heat.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            shimmer = heat.transform;
+            var heatR = heat.GetComponent<Renderer>();
+            heatR.shadowCastingMode = ShadowCastingMode.Off;
+            heatR.enabled = false;
+
             jets = new Transform[3];
             jetR = new Renderer[3];
             Color[] colors = { new Color(1f, 0.9f, 0.25f), new Color(1f, 0.48f, 0.06f), new Color(0.85f, 0.18f, 0.04f) };
@@ -276,6 +326,18 @@ namespace OutpostZero
             em.enabled = on;
             if (on) ps.Play(true);
             else ps.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            if (smoke != null)
+            {
+                var sem = smoke.emission;
+                sem.enabled = on;
+                if (on) smoke.Play(true);
+                else smoke.Stop(true, ParticleSystemStopBehavior.StopEmitting);
+            }
+            if (shimmer != null)
+            {
+                var sr = shimmer.GetComponent<Renderer>();
+                if (sr != null) sr.enabled = on;
+            }
             for (int i = 0; i < jetR.Length; i++) if (jetR[i] != null) jetR[i].enabled = on;
         }
 
@@ -290,6 +352,14 @@ namespace OutpostZero
                 float w = (0.1f + i * 0.04f) * flick;
                 jets[i].localScale = new Vector3(w, w * 0.45f, len);
                 jets[i].localPosition = new Vector3((i - 1) * 0.05f, 0.01f * i, len * 0.5f);
+            }
+            float end = Mathf.Max(0.5f, range * 0.82f / scaleZ);
+            if (smoke != null) smoke.transform.localPosition = new Vector3(0f, 0.15f, end);
+            if (shimmer != null)
+            {
+                float flick = 0.75f + 0.25f * Mathf.Abs(Mathf.Sin(Time.time * 23f));
+                shimmer.localPosition = new Vector3(0f, 0.04f, end * 0.62f);
+                shimmer.localScale = new Vector3(0.55f * flick, 0.32f * flick, 1f);
             }
         }
     }

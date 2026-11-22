@@ -13,18 +13,13 @@ namespace OutpostZero
         public Transform Body { get; private set; }
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;
         GameObject shieldWall;
-        Transform chest, armL, armR;
-        Vector3 chestBase;
+        RookAvatar avatar;
         WeaponVisual weapon;
 
         public void Build()
         {
-            var avatar = RookAvatar.Build(transform, false);
+            avatar = RookAvatar.Build(transform, false);
             Body = avatar.Root;
-            chest = avatar.Chest;
-            chestBase = avatar.ChestBase;
-            armL = avatar.ArmL;
-            armR = avatar.ArmR;
             weapon = avatar.Weapon;
             shieldWall = Prims.Part(PrimitiveType.Cube, transform, new Vector3(0, 0.8f, 1.1f), new Vector3(2f, 1.6f, 0.12f),
                 Prims.Mat(new Color(0.22f, 0.88f, 0.88f, 0.45f), true));
@@ -52,15 +47,7 @@ namespace OutpostZero
                 shieldWall.transform.position = new Vector3(transform.position.x, 0.8f, transform.position.z + 1.1f);
             }
             bool running = GameManager.I != null && (GameManager.I.State == GameState.Running || GameManager.I.State == GameState.BossFight);
-            float sway = Mathf.Sin(Time.time * (running ? 11f : 1.7f)) * (running ? 16f : 4f);
-            if (armL != null) armL.localRotation = Quaternion.Euler(sway, 0f, 16f);
-            if (armR != null) armR.localRotation = Quaternion.Euler(-sway * 0.35f, 0f, -10f);
-            if (chest != null)
-            {
-                float breath = 1f + Mathf.Sin(Time.time * 1.6f) * 0.03f;
-                chest.localScale = new Vector3(chestBase.x, chestBase.y * breath, chestBase.z);
-            }
-            if (weapon != null) weapon.Tick(dt);
+            if (avatar != null) avatar.Tick(dt, running);
         }
     }
 }

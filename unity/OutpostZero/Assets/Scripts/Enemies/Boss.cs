@@ -44,7 +44,7 @@ namespace OutpostZero
 
         protected override void OnHit(bool fromBullet, float amount)
         {
-            if (!fromBullet || amount < 0.9f) return;
+            if (!fromBullet) return;
             var p = transform.position; p.z += 0.12f; transform.position = p;
             Effects.Number(p + Vector3.up * 3.1f, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(), new Color(1f, 0.89f, 0.48f));
         }

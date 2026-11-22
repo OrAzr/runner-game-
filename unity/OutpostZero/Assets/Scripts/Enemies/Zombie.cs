@@ -65,18 +65,29 @@ namespace OutpostZero
             if (dz < -6f) Destroy(gameObject);
         }
 
+        static readonly MaterialPropertyBlock hitBlock = new MaterialPropertyBlock();
         protected void Flash(float dt)
         {
-            if (flash > 0) flash -= dt;
-            var c = flash > 0 ? new Color(0.53f, 0.2f, 0.13f) : Color.black;
-            foreach (var r in skin) { r.material.EnableKeyword("_EMISSION"); r.material.SetColor("_EmissionColor", c); }
+            if (flash > 0f) flash -= dt;
+            bool white = flash > 0f;
+            if (skin == null) return;
+            for (int i = 0; i < skin.Length; i++)
+            {
+                var r = skin[i];
+                if (r == null) continue;
+                var c = white || r.sharedMaterial == null ? Color.white : r.sharedMaterial.color;
+                hitBlock.Clear();
+                hitBlock.SetColor("_Color", c);
+                hitBlock.SetColor("_BaseColor", c);
+                r.SetPropertyBlock(hitBlock);
+            }
         }
 
         protected override void OnHit(bool fromBullet, float amount)
         {
             if (!fromBullet) return;
             var p = transform.position;
-            p.z += 0.4f; p.x += Random.Range(-0.22f, 0.22f);
+            p.z += 0.16f;
             transform.position = p;
             if (amount >= 0.9f) Effects.Number(p + Vector3.up * 1.6f, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(), new Color(1f, 0.89f, 0.48f));
         }
