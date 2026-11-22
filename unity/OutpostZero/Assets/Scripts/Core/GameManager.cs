@@ -38,8 +38,8 @@ namespace OutpostZero
         {
             cam = Camera.main ? Camera.main.GetComponent<CameraFollow>() : null;
             BuildRun();
-            GameUI.I?.ShowMenu();
-            if (autoStart) StartRun();
+            if (autoStart) { GameUI.I?.ShowMenu(); StartRun(); }
+            else GameUI.I?.ShowSelect();
         }
 
         public void BuildRun()

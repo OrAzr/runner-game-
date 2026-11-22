@@ -28,6 +28,7 @@ namespace OutpostZero
             input.Init(cfg.roadHalfWidth);
             Rook = gameObject.AddComponent<HeroRook>(); Rook.Build();
             Shooter = gameObject.AddComponent<AutoShooter>(); Shooter.Init(this);
+            ShowWeapon(WeaponType.AssaultRifle);
             countLabel = Prims.Label3D(transform, "1", new Vector3(0, 2.8f, 0), 0.9f, Color.white);
             Count = cfg.startCount;
             transform.position = Vector3.zero;
@@ -78,15 +79,23 @@ namespace OutpostZero
         Soldier SpawnSoldier(int i)
         {
             var s = Soldier.Create(transform.parent);
+            s.ShowWeapon(Shooter != null ? Shooter.Current : WeaponType.AssaultRifle);
             s.transform.position = transform.position + Formation.Offset(i, Time.time, vx) + Vector3.back * 1.8f;
             return s;
+        }
+
+        public void ShowWeapon(WeaponType type)
+        {
+            if (Rook != null) Rook.ShowWeapon(type);
+            for (int i = 1; i < soldiers.Count; i++) if (soldiers[i] != null) soldiers[i].ShowWeapon(type);
         }
 
         /// <summary>Muzzle positions of visible bodies (Rook first).</summary>
         public Vector3 MuzzleOf(int i)
         {
-            if (i <= 0 || i >= soldiers.Count) return Rook.Body.position + new Vector3(0.27f, 0.9f, 0.6f);
-            return soldiers[i].muzzle.position;
+            if (i <= 0 || i >= soldiers.Count || soldiers[i] == null)
+                return Rook != null && Rook.Muzzle != null ? Rook.Muzzle.position : transform.position + new Vector3(0.2f, 0.9f, 0.8f);
+            return soldiers[i].Muzzle.position;
         }
 
         public void ApplyGate(GateOp op)

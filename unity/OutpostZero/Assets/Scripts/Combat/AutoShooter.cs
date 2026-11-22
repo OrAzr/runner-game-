@@ -8,18 +8,22 @@ namespace OutpostZero
     {
         public WeaponType Current { get; private set; } = WeaponType.AssaultRifle;
         public float PickupTimeLeft { get; private set; }
-        SquadController squad; float shotAcc; bool flameOn; ParticleSystem flameFx;
+        SquadController squad; float shotAcc, emberT; bool flameOn; FlameStream flameFx;
+        WeaponType shown = (WeaponType)(-1);
 
         public void Init(SquadController s)
         {
             squad = s;
-            flameFx = Effects.CreateFlame(transform);
+            var muzzle = s.Rook != null ? s.Rook.Muzzle : transform;
+            flameFx = Effects.CreateFlame(muzzle);
+            Effects.LogKeyShaders(flameFx != null ? flameFx.ShaderLabel : "null");
         }
 
         public void GiveWeapon(WeaponType w, float seconds)
         {
             Current = w; PickupTimeLeft = seconds;
             GameUI.I?.Popup(WeaponDef.Get(w).label + "!", true);
+            ApplyLook();
         }
 
         void Update()
@@ -28,20 +32,30 @@ namespace OutpostZero
             if (gm == null || !gm.IsPlaying) { SetFlame(false); return; }
             float dt = Time.deltaTime;
             if (Current != WeaponType.AssaultRifle) { PickupTimeLeft -= dt; if (PickupTimeLeft <= 0) Current = WeaponType.AssaultRifle; }
+            ApplyLook();
             var w = WeaponDef.Get(Current);
             int shooters = Mathf.Min(squad.Count, SquadController.MaxVisible);
 
             if (Current == WeaponType.Flamethrower)
             {
                 SetFlame(true);
+                if (flameFx != null) flameFx.Tick(w.range);
                 float R = w.range + squad.Radius * 0.5f, dps = w.dps * (4 + shooters);
                 var targets = gm.Targets; var sp = transform.position;
+                emberT += dt;
+                bool toasted = false;
+                Vector3 toastAt = sp;
                 for (int i = targets.Count - 1; i >= 0; i--)
                 {
                     var t = targets[i]; if (t == null || !t.Alive) continue;
                     var tp = t.transform.position; float dz = tp.z - sp.z, dx = tp.x - sp.x;
-                    if (dz > -0.5f && dz < R && Mathf.Abs(dx) < squad.Radius + 0.8f + dz * w.cone) t.TakeDamage(dps * dt);
+                    if (dz > -0.5f && dz < R && Mathf.Abs(dx) < squad.Radius + 0.8f + dz * w.cone)
+                    {
+                        t.TakeDamage(dps * dt);
+                        toasted = true; toastAt = tp + Vector3.up * 0.6f;
+                    }
                 }
+                if (toasted && emberT > 0.16f) { emberT = 0f; Effects.Embers(toastAt); }
                 Gate.FlameTick(sp, R, w.gateRate * dt);
                 return;
             }
@@ -50,22 +64,35 @@ namespace OutpostZero
             int shots = Mathf.FloorToInt(shotAcc); shotAcc -= shots;
             if (shots > 0) AudioManager.I?.Play(w.sfx, Current == WeaponType.AssaultRifle ? 0.46f : 0.62f, Random.Range(0.92f, 1.12f), Current == WeaponType.AssaultRifle ? 0.055f : 0.12f);
             int vis = Mathf.Max(1, Mathf.Min(squad.Count, SquadController.MaxVisible));
+            bool shotgun = Current == WeaponType.Shotgun;
             while (shots-- > 0)
             {
                 Vector3 m = squad.MuzzleOf(Random.Range(0, vis));
-                Effects.Flash(m, w.tracer);
+                Effects.MuzzleFlash(m, Vector3.forward, w.tracer, shotgun ? 0.72f : 0.26f);
+                if (squad.Rook != null) squad.Rook.Kick(shotgun ? 1f : 0.35f);
+                if (!shotgun && Random.value < 0.22f) Effects.Shell(m);
                 for (int p = 0; p < w.pellets; p++)
                 {
                     float a = Random.Range(-w.spread, w.spread);
-                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, w.damage, w.tracer, w.gate);
+                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, w.damage, w.tracer, w.gate, shotgun);
                 }
             }
         }
 
+        void ApplyLook()
+        {
+            if (shown == Current) return;
+            shown = Current;
+            if (squad != null) squad.ShowWeapon(Current);
+        }
+
         void SetFlame(bool on)
         {
-            if (on == flameOn) return; flameOn = on;
-            if (on) { flameFx.Play(); AudioManager.I?.StartFlame(); } else { flameFx.Stop(); AudioManager.I?.StopFlame(); }
+            if (flameFx == null) return;
+            if (on == flameOn) return;
+            flameOn = on;
+            flameFx.SetPlaying(on);
+            if (on) AudioManager.I?.StartFlame(); else AudioManager.I?.StopFlame();
         }
     }
 }

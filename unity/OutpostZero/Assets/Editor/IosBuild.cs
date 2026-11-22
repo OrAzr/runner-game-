@@ -98,7 +98,15 @@ namespace OutpostZero.EditorTools
             "Unlit/Color",
             "Particles/Standard Unlit",
             "Sprites/Default",
-            "Legacy Shaders/Diffuse"
+            "Legacy Shaders/Diffuse",
+            "Legacy Shaders/Particles/Additive",
+            "Legacy Shaders/Particles/Alpha Blended",
+            "Particles/Additive",
+            "Mobile/Particles/Additive",
+            "Universal Render Pipeline/Lit",
+            "Universal Render Pipeline/Unlit",
+            "Universal Render Pipeline/Particles/Unlit",
+            "Hidden/InternalErrorShader"
         };
 
         // No scene asset references these shaders, so the player stripper drops them and Shader.Find returns null.

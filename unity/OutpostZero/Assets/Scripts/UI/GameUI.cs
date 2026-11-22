@@ -9,9 +9,16 @@ namespace OutpostZero
         public static GameUI I { get; private set; }
         static RectTransform shieldRect; static Canvas canvasStatic;
 
-        Canvas canvas; GameObject menu, hud, end;
+        Canvas canvas; GameObject menu, hud, end, select, lockBadge, soonBanner;
         Image progressFill, bossFill, weaponFill; GameObject bossBar, weaponBox;
-        Text weaponName, bossHpText, shieldText, endTitle, endStats, popup; float popupT;
+        Text weaponName, bossHpText, shieldText, endTitle, endStats, popup;
+        Text heroName, heroRole, heroWeapon, heroSpecial; Image selectBtnImage; Button selectBtn; Text selectBtnLabel;
+        RectTransform modelZone;
+        CharacterStage stage;
+        int heroIndex;
+        bool selectDragging, selectOnModel;
+        Vector2 selectStart, selectLast;
+        float popupT;
         Font font;
 
         void Awake() { I = this; font = Prims.UIFont(); Build(); }
@@ -87,10 +94,95 @@ namespace OutpostZero
             endStats = Txt("Stats", end.transform, "", 38, Color.white, TextAnchor.MiddleCenter, new Vector2(0, 0.48f), new Vector2(1, 0.55f), Vector2.zero, Vector2.zero);
             Btn("Again", end.transform, "PLAY AGAIN", Palette.Orange, new Vector2(0, -150), new Vector2(520, 130), () => GameManager.I.StartRun());
             end.SetActive(false);
+
+            BuildSelect(root);
+            menu.SetActive(false);
         }
 
-        public void ShowMenu() { menu.SetActive(true); end.SetActive(false); }
-        public void ShowHud() { menu.SetActive(false); end.SetActive(false); }
+        void BuildSelect(Transform root)
+        {
+            var selectImage = Img("Select", root, new Color(0.04f, 0.06f, 0.07f, 0f), Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            selectImage.raycastTarget = true;
+            select = selectImage.gameObject;
+            Txt("Heading", select.transform, "CHOOSE YOUR HERO", 64, new Color(0.22f, 0.82f, 0.82f), TextAnchor.MiddleCenter, new Vector2(0, 1), new Vector2(1, 1), new Vector2(0, -160), new Vector2(0, -40));
+            var zone = Img("ModelZone", select.transform, new Color(0, 0, 0, 0.01f), new Vector2(0.16f, 0.36f), new Vector2(0.84f, 0.72f), Vector2.zero, Vector2.zero);
+            modelZone = zone.rectTransform;
+            Btn("Prev", select.transform, "<", Palette.Teal, new Vector2(-360, 80), new Vector2(120, 120), () => StepHero(-1));
+            Btn("Next", select.transform, ">", Palette.Teal, new Vector2(360, 80), new Vector2(120, 120), () => StepHero(1));
+            heroName = Txt("Name", select.transform, "ROOK", 72, Color.white, TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 430), new Vector2(0, 520));
+            heroRole = Txt("Role", select.transform, "COMMANDER", 36, Palette.Orange, TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(0, 370), new Vector2(0, 430));
+            heroWeapon = Txt("Weapon", select.transform, "WEAPON  ASSAULT RIFLE", 32, new Color(1, 1, 1, 0.9f), TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(40, 300), new Vector2(-40, 370));
+            heroSpecial = Txt("Special", select.transform, "SPECIAL  SHIELD WALL", 32, new Color(1, 1, 1, 0.9f), TextAnchor.MiddleCenter, new Vector2(0, 0), new Vector2(1, 0), new Vector2(40, 240), new Vector2(-40, 310));
+            lockBadge = Rect("Lock", select.transform, new Vector2(0.5f, 0.5f), new Vector2(0.5f, 0.5f), new Vector2(-70, 40), new Vector2(70, 200)).gameObject;
+            Img("ShackleL", lockBadge.transform, Color.white, new Vector2(0, 0.45f), new Vector2(0, 1), new Vector2(18, 0), new Vector2(34, -8));
+            Img("ShackleR", lockBadge.transform, Color.white, new Vector2(1, 0.45f), new Vector2(1, 1), new Vector2(-34, 0), new Vector2(-18, -8));
+            Img("ShackleTop", lockBadge.transform, Color.white, new Vector2(0, 1), new Vector2(1, 1), new Vector2(18, -28), new Vector2(-18, -10));
+            Img("Body", lockBadge.transform, Color.white, new Vector2(0, 0), new Vector2(1, 0.55f), new Vector2(8, 0), new Vector2(-8, 0));
+            soonBanner = Txt("Soon", select.transform, "COMING SOON", 40, new Color(1f, 0.85f, 0.45f), TextAnchor.MiddleCenter, new Vector2(0, 0.5f), new Vector2(1, 0.5f), new Vector2(0, -40), new Vector2(0, 30)).gameObject;
+            selectBtn = Btn("Select", select.transform, "SELECT", Palette.Orange, new Vector2(0, -620), new Vector2(460, 120), ConfirmHero);
+            selectBtnImage = selectBtn.GetComponent<Image>();
+            selectBtnLabel = selectBtn.GetComponentInChildren<Text>();
+            var stageGo = new GameObject("CharacterStage");
+            stage = stageGo.AddComponent<CharacterStage>();
+            stage.Build();
+            heroIndex = CharacterStage.SavedIndex();
+            ApplyHero(heroIndex);
+            select.SetActive(false);
+            if (stage != null) stage.Hide();
+        }
+
+        public void ShowSelect()
+        {
+            if (menu != null) menu.SetActive(false);
+            if (end != null) end.SetActive(false);
+            if (select != null) select.SetActive(true);
+            heroIndex = CharacterStage.SavedIndex();
+            ApplyHero(heroIndex);
+        }
+
+        void StepHero(int dir)
+        {
+            heroIndex = (heroIndex + dir + CharacterStage.Roster.Length) % CharacterStage.Roster.Length;
+            ApplyHero(heroIndex);
+        }
+
+        void ApplyHero(int index)
+        {
+            var slot = CharacterStage.Roster[index];
+            heroName.text = slot.name;
+            heroRole.text = slot.role;
+            heroWeapon.text = "WEAPON  " + slot.weapon;
+            heroSpecial.text = "SPECIAL  " + slot.special;
+            bool open = slot.playable;
+            if (lockBadge != null) lockBadge.SetActive(!open);
+            if (soonBanner != null) soonBanner.SetActive(!open);
+            if (selectBtn != null) selectBtn.interactable = open;
+            if (selectBtnImage != null) selectBtnImage.color = open ? Palette.Orange : new Color(0.35f, 0.37f, 0.4f);
+            if (selectBtnLabel != null) selectBtnLabel.text = open ? "SELECT" : "LOCKED";
+            if (stage != null) stage.Show(index);
+        }
+
+        void ConfirmHero()
+        {
+            if (heroIndex < 0 || heroIndex >= CharacterStage.Roster.Length || !CharacterStage.Roster[heroIndex].playable) return;
+            CharacterStage.Remember(heroIndex);
+            if (select != null) select.SetActive(false);
+            if (stage != null) stage.Hide();
+            ShowMenu();
+        }
+
+        public void ShowMenu()
+        {
+            if (select != null) select.SetActive(false);
+            if (stage != null) stage.Hide();
+            menu.SetActive(true); end.SetActive(false);
+        }
+        public void ShowHud()
+        {
+            if (select != null) select.SetActive(false);
+            if (stage != null) stage.Hide();
+            menu.SetActive(false); end.SetActive(false);
+        }
         public void ShowEnd(bool win, int survivors, int kills, float dist)
         {
             endTitle.text = win ? "VICTORY" : "DEFEAT";
@@ -107,6 +199,7 @@ namespace OutpostZero
 
         void Update()
         {
+            if (select != null && select.activeSelf) { TickSelect(); return; }
             var gm = GameManager.I; if (gm == null || gm.Squad == null) return;
             progressFill.rectTransform.anchorMax = new Vector2(Mathf.Clamp01(gm.Distance / gm.level.bossDistance), 1);
             var sh = gm.Squad.Shooter;
@@ -122,6 +215,47 @@ namespace OutpostZero
             var rook = gm.Squad.Rook;
             shieldText.text = rook.ShieldActive ? "SHIELD\nACTIVE" : rook.Cooldown > 0 ? $"SHIELD\n{Mathf.CeilToInt(rook.Cooldown)}s" : "SHIELD\nREADY";
             if (popupT > 0) { popupT -= Time.deltaTime; var c = popup.color; c.a = Mathf.Clamp01(popupT / 0.4f); popup.color = c; }
+        }
+
+        void TickSelect()
+        {
+            bool began = false, held = false, ended = false;
+            Vector2 pos = Vector2.zero;
+            if (Input.touchCount > 0)
+            {
+                var t = Input.GetTouch(0);
+                pos = t.position;
+                began = t.phase == TouchPhase.Began;
+                held = t.phase == TouchPhase.Moved || t.phase == TouchPhase.Stationary;
+                ended = t.phase == TouchPhase.Ended || t.phase == TouchPhase.Canceled;
+            }
+            else
+            {
+                pos = Input.mousePosition;
+                began = Input.GetMouseButtonDown(0);
+                held = Input.GetMouseButton(0);
+                ended = Input.GetMouseButtonUp(0);
+            }
+            if (began)
+            {
+                selectDragging = true;
+                selectStart = selectLast = pos;
+                selectOnModel = modelZone != null && RectTransformUtility.RectangleContainsScreenPoint(modelZone, pos, null);
+                if (selectOnModel && stage != null) stage.BeginDrag();
+            }
+            if (selectDragging && held && selectOnModel && stage != null)
+            {
+                stage.Drag((pos.x - selectLast.x) * 0.45f);
+                selectLast = pos;
+            }
+            if (ended && selectDragging)
+            {
+                Vector2 delta = pos - selectStart;
+                if (!selectOnModel && Mathf.Abs(delta.x) > 90f && Mathf.Abs(delta.x) > Mathf.Abs(delta.y) * 1.2f)
+                    StepHero(delta.x < 0f ? 1 : -1);
+                if (selectOnModel && stage != null) stage.EndDrag();
+                selectDragging = false;
+            }
         }
 
         /// <summary>True when a press at this screen X/Y lands on the shield button, so it doesn't start a steer drag.</summary>
