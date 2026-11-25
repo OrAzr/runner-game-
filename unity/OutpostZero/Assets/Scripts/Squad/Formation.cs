@@ -2,13 +2,17 @@ using UnityEngine;
 
 namespace OutpostZero
 {
-    /// <summary>Organic crowd behind the hero: a golden-angle phyllotaxis ("sunflower") pack, folded so it
-    /// only ever fills in behind and beside Rook, never in front of him, plus a small fixed per-soldier
-    /// jitter (hashed from slot index, not re-rolled every frame) and a slow per-slot-phased breathing
-    /// drift so the pack reads as a loose, living huddle rather than a rigid lattice. Soldier.Tick's
-    /// SmoothDamp already supplies the lag chasing a moving slot; the steer-driven sway below is layered
-    /// on top so the outer edge of the pack leans into a turn instead of the whole block snapping sideways
-    /// together.</summary>
+    /// <summary>Organic crowd behind the hero: a golden-angle phyllotaxis ("sunflower") pack, restricted to
+    /// the back half-plane by filtering the natural (unmodified) spiral down to the slots that already
+    /// land behind Rook, rather than mirroring the front-half slots back there - mirroring broke the
+    /// spiral's own non-overlap guarantee, because a slot's mirror image can land almost exactly on top of
+    /// a different, already-behind slot at a similar radius. Filtering never moves a kept point, so every
+    /// pairwise spacing the spiral already guaranteed stays intact. Small fixed per-soldier jitter (hashed
+    /// from slot index, not re-rolled every frame) and a slow per-slot-phased breathing drift on top make
+    /// the pack read as a loose, living huddle rather than a rigid lattice. Soldier.Tick's SmoothDamp
+    /// already supplies the lag chasing a moving slot; the steer-driven sway below is layered on top so
+    /// the outer edge of the pack leans into a turn instead of the whole block snapping sideways together.
+    /// </summary>
     public static class Formation
     {
         // Shoulder-to-shoulder width of the rigged soldier model at its in-game scale (SoldierAvatar.
@@ -43,20 +47,27 @@ namespace OutpostZero
         {
             if (i == 0) return new Vector3(0f, 0f, 0.15f);
 
-            int k = i; // 1-based index into the sunflower sequence
-            float angle = k * GoldenAngle;
+            // Walk the full, unmodified golden-angle spiral and take the i-th slot whose natural angle
+            // already falls in the back half (sin <= 0) - roughly every other m qualifies, so this scans
+            // about 2x as many candidates as slots requested, trivial at the squad's size cap (<=30).
+            int m = 0, found = 0;
+            float angle = 0f, sin = 0f;
+            while (found < i)
+            {
+                m++;
+                angle = m * GoldenAngle;
+                sin = Mathf.Sin(angle);
+                if (sin <= 0f) found++;
+            }
             float cos = Mathf.Cos(angle);
-            float sin = Mathf.Sin(angle);
-            if (sin > 0f) sin = -sin; // fold the front half behind so the pack never reads as surrounding Rook from ahead
-            float r = spacing * Mathf.Sqrt(k);
-            float behind = -sin * r; // >= 0
+            float r = spacing * Mathf.Sqrt(m);
 
             float sway = steer * Mathf.Min(0.22f, r * 0.05f);
             // Slow sine drift, phased per slot (via Hash) so soldiers don't breathe in lockstep - small
             // enough next to Jitter/spacing that it never opens a gap wide enough to read as overlap risk.
             float breathe = Mathf.Sin(time * 0.55f + Hash(i, 3) * Mathf.PI) * 0.05f;
             float x = cos * r - sway + Hash(i, 1) * Jitter + breathe;
-            float z = -(FrontGap + behind) + Hash(i, 2) * Jitter + breathe * 0.5f;
+            float z = sin * r - FrontGap + Hash(i, 2) * Jitter + breathe * 0.5f; // sin <= 0, so this only ever pushes back
             return new Vector3(x, 0f, z);
         }
 
@@ -72,6 +83,9 @@ namespace OutpostZero
             }
         }
 
-        public static float Radius(int visible, float spacing) => spacing * Mathf.Sqrt(Mathf.Max(1, visible)) + 0.4f;
+        // The back-half filter in Offset needs roughly 2x as many spiral candidates (m) as requested slots
+        // (i) to find enough with sin <= 0, so the outermost kept slot's radius grows by about sqrt(2) over
+        // the old "every slot kept" sqrt(visible) estimate.
+        public static float Radius(int visible, float spacing) => spacing * Mathf.Sqrt(2f * Mathf.Max(1, visible)) + 0.4f;
     }
 }
