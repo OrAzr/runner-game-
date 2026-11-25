@@ -54,11 +54,15 @@ namespace OutpostZero
             go.transform.SetParent(anchor.transform, false);
             go.transform.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
 
-            // Measured on the source mesh (see Tools notes): the long side runs along local X with the
-            // muzzle at its negative end, so +90 about Y carries -X to this project's +Z forward convention.
+            // The long side runs along local X. Unity's FBX importer mirrors X, so the muzzle sits at the
+            // positive end; -90 about Y carries +X onto this project's +Z forward convention. The FBX
+            // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
-            anchor.transform.localRotation = Quaternion.Euler(0f, 90f, 0f);
+            // -90 Y points the mirrored +X barrel down the road. With the weapon root
+            // world-locked to +Z, the mesh is already nearly level in that frame, so no
+            // extra pitch is applied (a negative X pitch now raises the muzzle).
+            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;

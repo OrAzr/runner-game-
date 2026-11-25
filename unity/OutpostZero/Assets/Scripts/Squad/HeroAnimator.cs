@@ -176,12 +176,16 @@ namespace OutpostZero
             }
 
             if (aimRoot == null) return;
+            // Hands and forearms aim world-forward and level, so the rifle stays horizontal down the
+            // road even when Rook's body is yawed ~20° toward the camera or pitched into the run.
+            // Shoulders still follow the body so the arms reach naturally from the yawed torso.
+            var levelForward = Quaternion.LookRotation(Vector3.forward, Vector3.up);
             if (rightArm != null) rightArm.rotation = aimRoot.rotation * RightArmAim;
-            if (rightForeArm != null) rightForeArm.rotation = aimRoot.rotation * RightForeArmAim;
-            if (rightHand != null) rightHand.rotation = aimRoot.rotation * RightHandAim;
+            if (rightForeArm != null) rightForeArm.rotation = levelForward * RightForeArmAim;
+            if (rightHand != null) rightHand.rotation = levelForward * RightHandAim;
             if (leftArm != null) leftArm.rotation = aimRoot.rotation * LeftArmAim;
-            if (leftForeArm != null) leftForeArm.rotation = aimRoot.rotation * LeftForeArmAim;
-            if (leftHand != null) leftHand.rotation = aimRoot.rotation * LeftHandAim;
+            if (leftForeArm != null) leftForeArm.rotation = levelForward * LeftForeArmAim;
+            if (leftHand != null) leftHand.rotation = levelForward * LeftHandAim;
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);
