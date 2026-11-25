@@ -60,9 +60,9 @@ namespace OutpostZero
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
             // -90 Y points the mirrored +X barrel down the road. The imported mesh then sits
-            // about 60 deg muzzle-up, so a parent-space -X pitch (applied after the yaw) brings
+            // about 60 deg muzzle-up in the side view; -60 X overshot to muzzle-down, so use -30
             // the muzzle down to horizontal, magazine still down.
-            anchor.transform.localRotation = Quaternion.Euler(-60f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
+            anchor.transform.localRotation = Quaternion.Euler(-30f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
