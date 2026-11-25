@@ -121,8 +121,16 @@ namespace OutpostZero
             var tex = new Texture2D(w, h, TextureFormat.RGB24, false);
             tex.ReadPixels(new Rect(0, 0, w, h), 0, 0);
             tex.Apply();
-            var path = Path.Combine(dir, name + ".png");
-            File.WriteAllBytes(path, tex.EncodeToPNG());
+            // ImageConversion module isn't in the project, so write a binary PPM; run_qa.sh converts it to PNG.
+            var px = tex.GetPixels32();
+            var header = System.Text.Encoding.ASCII.GetBytes("P6\n" + w + " " + h + "\n255\n");
+            var bytes = new byte[header.Length + w * h * 3];
+            System.Buffer.BlockCopy(header, 0, bytes, 0, header.Length);
+            int k = header.Length;
+            for (int y = h - 1; y >= 0; y--)
+                for (int x = 0; x < w; x++) { var c = px[y * w + x]; bytes[k++] = c.r; bytes[k++] = c.g; bytes[k++] = c.b; }
+            var path = Path.Combine(dir, name + ".ppm");
+            File.WriteAllBytes(path, bytes);
             Destroy(tex);
             Debug.Log("[QA] wrote " + path + " (" + w + "x" + h + ")");
         }
