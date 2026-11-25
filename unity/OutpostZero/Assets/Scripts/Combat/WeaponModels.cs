@@ -62,7 +62,9 @@ namespace OutpostZero
             // -90 Y points the mirrored +X barrel down the road. The imported mesh then sits
             // muzzle-up in that frame; a parent-space -X pitch after the yaw brings the muzzle
             // down to horizontal, with the magazine still down.
-            anchor.transform.localRotation = Quaternion.Euler(-22f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
+            // -22 left the mesh ~25-30° muzzle-up in the 12b side view once the
+            // weapon root was world-locked; -50 closes that remaining carry.
+            anchor.transform.localRotation = Quaternion.Euler(-50f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
