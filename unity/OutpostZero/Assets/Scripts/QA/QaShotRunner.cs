@@ -114,9 +114,10 @@ namespace OutpostZero
                 yield return Capture(outDir, "10-boss-fight-" + b);
             }
 
-            // Boss HP is tuned low for the QA level, but give a generous margin in case the squad is still
-            // small at this point in the run.
-            yield return WaitUntil(() => !gm.IsPlaying, 40f);
+            // Boss HP is tuned low for the QA level, but effective boss dps is well below a naive shooter
+            // count * rate estimate (see LevelConfig.QaLevel) since only centrally-aligned shooters' bullets
+            // actually connect with a single, centered target - give a generous margin.
+            yield return WaitUntil(() => !gm.IsPlaying, 60f);
             yield return new WaitForSecondsRealtime(0.8f); // GameUI.ShowEnd reveals the panel after its own 0.7s delay
             yield return Capture(outDir, "11-end-screen");
 
