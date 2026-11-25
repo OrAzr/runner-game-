@@ -78,17 +78,21 @@ namespace OutpostZero
             graph.Play();
             // Starts already fully weighted onto one clip (Idle if present, else whatever loaded first)
             // instead of leaving every mixer input at 0 until the first real Play() call ramps one in.
-            // That all-zero-weight gap was briefly visible after a QaShotRunner restart: the restart's
-            // eager HeroAnimator.LockAimPose->ApplyAimLock call corrected the hand bone before anything
-            // else ran, but AnimationMixerPlayable's own treatment of an all-zero-weight pose (effectively
-            // "no clip contributing") clobbered it again the moment the real Play() call ramped the first
-            // clip's weight up from 0 - a transient that normal mid-game blends between two already
-            // nonzero-weighted clips never hit.
             int startIdx = FindIndex("Idle");
             if (startIdx < 0) startIdx = 0;
             activeIndex = startIdx;
             weight[startIdx] = 1f;
             mixer.SetInputWeight(startIdx, 1f);
+            // Forces the graph to sample and write this starting pose into the Animator's bones right now,
+            // synchronously, instead of waiting for Unity's own once-per-frame native animation evaluation
+            // (which runs between Update and LateUpdate - see LateUpdate's own comment). A graph that was
+            // JUST created doesn't line up with that per-frame schedule the same way an already-running one
+            // does, so its first native evaluation can land late enough to fire AFTER LockAimPose's eager
+            // ApplyAimLock call below (and after this frame's own LateUpdate, which hasn't been reached for
+            // a component built mid-frame), clobbering the hand/arm bones with the raw clip pose for a
+            // visible frame before the next LateUpdate corrects it again. Evaluating here consumes that
+            // first-sample-ever so there's nothing deferred left to land awkwardly later.
+            graph.Evaluate(0f);
             return true;
         }
 
