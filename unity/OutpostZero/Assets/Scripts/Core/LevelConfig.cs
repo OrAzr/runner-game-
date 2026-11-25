@@ -82,15 +82,16 @@ namespace OutpostZero
         /// a full designed level. Boss HP is cut hard (900 -> 60) so the fight itself also resolves quickly
         /// under automated capture instead of running for a minute against whatever squad size QA happens
         /// to have at that point. Both sides of every gate are plain positive ops (no "#" counters, which
-        /// start negative and only climb if bullets happen to hit them) and startCount is bumped from the
-        /// normal 1 to 4: the automated runner never drags to steer, so SquadController.x sits at exactly 0
-        /// the whole run and Gate.Update's `x < 0f` side pick deterministically always resolves to the right
-        /// gate - a counter gate there would reliably wipe a 1-soldier squad on every single QA pass instead
-        /// of being down to the luck a real, steering player would have.</summary>
+        /// start negative and only climb if bullets happen to hit them): the automated runner never drags
+        /// to steer, so SquadController.x sits at exactly 0 the whole run and Gate.Update's `x < 0f` side
+        /// pick deterministically always resolves to the right gate - a counter gate there would reliably
+        /// wipe a small squad on every single QA pass instead of being down to the luck a real, steering
+        /// player would have. (startCount isn't set here - Tuning.Apply always overwrites LevelConfig.
+        /// startCount from Tuning.Current.startingSquadSize regardless of this value, so QaShotRunner sets
+        /// that directly before building this level.)</summary>
         static LevelConfig QaLevel() => new LevelConfig
         {
             runSpeed = 6.2f, bossDistance = 150f, bossHp = 60f, bossSpeed = 2.4f, bossStartGap = 14f, squadCap = 24,
-            startCount = 4,
             gates = new List<GateDef> {
                 new GateDef(20, "+3", "+2"), new GateDef(60, "+2", "+3"), new GateDef(100, "+4", "+2"),
             },

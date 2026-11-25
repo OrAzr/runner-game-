@@ -81,6 +81,13 @@ namespace OutpostZero
             // Levels.Build returns the short QA layout automatically while -qaShots is set (see
             // LevelConfig.cs), so this reaches the boss in ~25s instead of the shipped level's ~35s+.
             var gm = GameManager.I;
+            // The default 1-soldier start (Tuning.Current.startingSquadSize) is too thin to reliably survive
+            // the QA level's early zombie group once a zombie's aggroRange closes the gap faster than the
+            // squad can out-walk it; rebuilding with a bigger starting squad here (rather than in
+            // LevelConfig.QaLevel's startCount, which Tuning.Apply overwrites unconditionally right after
+            // Levels.Build returns it) gives this E2E pass a reliable buffer without touching shipped tuning.
+            Tuning.Current.startingSquadSize = 6;
+            gm.BuildRun();
             gm.StartRun();
             Canvas.ForceUpdateCanvases();
 
