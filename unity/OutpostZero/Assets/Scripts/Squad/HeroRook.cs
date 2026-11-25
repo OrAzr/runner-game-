@@ -15,6 +15,7 @@ namespace OutpostZero
         public bool IsRigged => avatar != null && avatar.IsRigged;
         public float HitFlinch => avatar != null ? avatar.FlinchPitch : 0f;
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;
+        public bool IsPoseStable => avatar == null || avatar.IsPoseStable;
         GameObject shieldWall;
         RookAvatar avatar;
         WeaponVisual weapon;

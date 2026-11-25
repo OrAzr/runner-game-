@@ -28,42 +28,31 @@ namespace OutpostZero
         // road, a gate, the boss fight - gets caught instead of just whatever instant a screenshot landed on.
         const float MinAimDot = 0.85f;
 
-        // A rigged body's Animator/PlayableGraph binding gets a one-time engine-level pose sync the first
-        // time Unity actually registers a freshly-created Animator - this lands before HeroAnimator's own
-        // first Update/LateUpdate get a chance to run (both are themselves deferred to the frame after
-        // AddComponent), so it can briefly show the raw bind pose for exactly one checked frame right after
-        // a Rook or soldier body is built. That happens only when a body is actually (re)built - a squad
-        // rebuild (QaShotRunner restarting for its demo shots here, or a real player starting/retrying a
-        // run) for Rook, or a newly spawned squadmate for a soldier, which can register a few frames behind
-        // Rook's own body - never during ongoing play on an already-registered body. Each muzzle gets its
-        // own short settle window keyed off its own Transform identity rather than a shared one keyed off
-        // the squad, so a soldier spawning after Rook still gets covered. Full-rigor checking resumes
-        // immediately after each one settles, covering every other frame including the entire boss fight.
-        const int SettleFrames = 3;
-        Transform lastRookMuzzle, lastSoldierMuzzle;
-        int rookSettle, soldierSettle;
-
         void Update()
         {
             var gm = GameManager.I;
             if (gm == null || !gm.IsPlaying || gm.Squad == null) return;
             var squad = gm.Squad;
-            Transform rookMuzzle = squad.Rook != null ? squad.Rook.Muzzle : null;
+            Transform rookMuzzle = null;
+            bool rookStable = true;
+            if (squad.Rook != null) { rookMuzzle = squad.Rook.Muzzle; rookStable = squad.Rook.IsPoseStable; }
             Transform soldierMuzzle = null;
+            bool soldierStable = true;
             for (int i = 1; i < squad.Soldiers.Count; i++)
             {
-                if (squad.Soldiers[i] != null) { soldierMuzzle = squad.Soldiers[i].Muzzle; break; }
+                if (squad.Soldiers[i] != null) { soldierMuzzle = squad.Soldiers[i].Muzzle; soldierStable = squad.Soldiers[i].IsPoseStable; break; }
             }
             if (rookMuzzle == null && soldierMuzzle == null) return;
-            if (rookMuzzle != lastRookMuzzle) { lastRookMuzzle = rookMuzzle; rookSettle = SettleFrames; }
-            else if (rookSettle > 0) rookSettle--;
-            if (soldierMuzzle != lastSoldierMuzzle) { lastSoldierMuzzle = soldierMuzzle; soldierSettle = SettleFrames; }
-            else if (soldierSettle > 0) soldierSettle--;
             float rookDot = rookMuzzle != null ? Vector3.Dot(rookMuzzle.forward, Vector3.forward) : 1f;
             float soldierDot = soldierMuzzle != null ? Vector3.Dot(soldierMuzzle.forward, Vector3.forward) : 1f;
             Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
-            bool rookFail = rookDot < MinAimDot && rookSettle <= 0;
-            bool soldierFail = soldierDot < MinAimDot && soldierSettle <= 0;
+            // A body whose renderers are still hidden (HeroAnimator.HideUntilStable, right after it's first
+            // built) isn't actually visible yet, so a low dot there isn't a real on-screen glitch - treated
+            // the same as "no muzzle to check" rather than skipped outright, so it still shows up in the
+            // QA_AIM log for visibility. Every other frame, including the instant a body's renderers come
+            // back on, is checked at full rigor.
+            bool rookFail = rookDot < MinAimDot && rookStable;
+            bool soldierFail = soldierDot < MinAimDot && soldierStable;
             if (rookFail || soldierFail)
                 Debug.LogError("QA_AIM_FAIL rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
         }

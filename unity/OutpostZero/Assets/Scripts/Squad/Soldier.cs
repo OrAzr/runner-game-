@@ -7,6 +7,7 @@ namespace OutpostZero
     public class Soldier : MonoBehaviour
     {
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : transform;
+        public bool IsPoseStable => avatar == null || avatar.IsPoseStable;
         public bool Dying { get; private set; }
         SoldierAvatar avatar;
         WeaponVisual weapon;

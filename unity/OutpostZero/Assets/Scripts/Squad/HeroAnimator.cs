@@ -28,6 +28,29 @@ namespace OutpostZero
         Vector3 hipsLockedXZ;
         float hipsSmoothedY;
 
+        Renderer[] hiddenUntilStable;
+        int stableLateUpdates;
+
+        /// <summary>True once any renderers passed to HideUntilStable have been switched back on (or none
+        /// ever were). QaShotRunner reads this to treat an unstable body as not-yet-visible rather than a
+        /// real aim failure - see HideUntilStable for why a body needs this at all.</summary>
+        public bool PoseStable => hiddenUntilStable == null;
+
+        /// <summary>Hides renderers until this component's own correction has had a couple of LateUpdate
+        /// passes to run. A freshly built rigged body's Animator gets a one-time engine-level pose sync the
+        /// first time Unity actually registers it - landing before this component's own first Update/
+        /// LateUpdate even run, both deferred to the frame after AddComponent - so for a frame or two a new
+        /// Rook or soldier would otherwise visibly flash the raw FBX bind pose (rifle backwards) before
+        /// ApplyAimLock corrects it. Called once right after LockAimPose from RookAvatar/SoldierAvatar.
+        /// BuildRigged, passing the same renderers they already collected for material assignment.</summary>
+        public void HideUntilStable(Renderer[] renderers)
+        {
+            hiddenUntilStable = renderers;
+            stableLateUpdates = 0;
+            if (renderers == null) return;
+            for (int i = 0; i < renderers.Length; i++) if (renderers[i] != null) renderers[i].enabled = false;
+        }
+
         Transform aimRoot, rightArm, rightForeArm, rightHand, leftArm, leftForeArm, leftHand, spine2, spine, spine1;
 
         // Aim-pose offsets are Euler angles applied on top of aimRoot.rotation (the character's own facing),
@@ -199,6 +222,15 @@ namespace OutpostZero
             }
 
             ApplyAimLock();
+
+            // Two full LateUpdate passes (not one) before unhiding: the first one is what actually fixes a
+            // freshly built body's pose, so this keeps the renderers off for one extra, already-correct
+            // frame as a margin against the same registration quirk landing slightly later than usual.
+            if (hiddenUntilStable != null && ++stableLateUpdates >= 2)
+            {
+                for (int i = 0; i < hiddenUntilStable.Length; i++) if (hiddenUntilStable[i] != null) hiddenUntilStable[i].enabled = true;
+                hiddenUntilStable = null;
+            }
         }
 
         /// <summary>The actual pose lock: straightens the spine, then overrides the shoulder/elbow/hand

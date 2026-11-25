@@ -15,6 +15,11 @@ namespace OutpostZero
         /// primitive fallback (still wants the procedural bob Soldier.Tick applies to its root).</summary>
         public bool IsRigged => Anim != null;
 
+        /// <summary>False only for the couple of frames right after a rigged body is built while its
+        /// renderers are still hidden (see HeroAnimator.HideUntilStable) - the primitive fallback has no
+        /// such window and is always stable.</summary>
+        public bool IsPoseStable => Anim == null || Anim.PoseStable;
+
         // Tuned against RookAvatar's own in-gameplay height (RiggedTargetHeight), not life-size, so soldiers
         // read as clearly smaller than their commander instead of to-scale with him. QA screenshots at 0.825
         // showed the squad reading almost as tall as Rook once camera-distance perspective was factored in
@@ -88,6 +93,11 @@ namespace OutpostZero
                     RookAvatar.FindDeep(root, "mixamorig:RightArm"), RookAvatar.FindDeep(root, "mixamorig:RightForeArm"), handBone,
                     RookAvatar.FindDeep(root, "mixamorig:LeftArm"), RookAvatar.FindDeep(root, "mixamorig:LeftForeArm"), RookAvatar.FindDeep(root, "mixamorig:LeftHand"),
                     RookAvatar.FindDeep(root, "mixamorig:Spine2"));
+                // See RookAvatar.BuildRigged's same call: hides a freshly spawned soldier until its own
+                // correction has definitely stuck, so a squad growing from a gate never flashes one body
+                // with its rifle pointing backward for a frame. Re-fetched (not the earlier `renderers`)
+                // so the weapon - attached after that list was collected - is hidden along with the body.
+                avatar.Anim.HideUntilStable(go.GetComponentsInChildren<Renderer>());
                 // Slight per-soldier speed jitter plus a randomized run-cycle start phase (see HeroAnimator.
                 // Play's startTime) so a crowd of otherwise-identical rigs doesn't move in lockstep.
                 avatar.Anim.Speed = Random.Range(0.92f, 1.08f);

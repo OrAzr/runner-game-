@@ -31,6 +31,11 @@ namespace OutpostZero
         /// primitive fallback (which has no locomotion animation of its own and still wants the procedural bob).</summary>
         public bool IsRigged => Anim != null;
 
+        /// <summary>False only for the couple of frames right after a rigged body is built while its
+        /// renderers are still hidden (see HeroAnimator.HideUntilStable) - the primitive fallback has no
+        /// such window and is always stable.</summary>
+        public bool IsPoseStable => Anim == null || Anim.PoseStable;
+
         /// <summary>Single knob for how large the rigged hero reads in gameplay. 1x used to match the old
         /// primitive body's own height so the swap wouldn't change gameplay framing; device testing showed
         /// that "to scale" hero read as barely bigger than the squad grunts and tiny next to gates, so this
@@ -116,6 +121,13 @@ namespace OutpostZero
                     FindDeep(root, "mixamorig:Spine2"),
                     // Rook-only: straightens the running clip's forward stoop (SoldierAvatar doesn't pass these).
                     FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"));
+                // Keeps the just-built body AND weapon invisible for the couple of frames LockAimPose's own
+                // eager correction isn't guaranteed to have stuck yet (see HeroAnimator.HideUntilStable) - a
+                // restart should never flash the raw bind pose (rifle backwards over the shoulder) even for
+                // a single frame. Re-fetched here (not the earlier `renderers`) because that was collected
+                // before the weapon was attached under the hand bone - hiding only the body would leave the
+                // gun floating visibly, mis-posed, with no body around it.
+                avatar.Anim.HideUntilStable(go.GetComponentsInChildren<Renderer>());
             }
 
             if (silhouette) TintDark(root);
