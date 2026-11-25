@@ -76,6 +76,19 @@ namespace OutpostZero
                 mixer.SetInputWeight(i, 0f);
             }
             graph.Play();
+            // Starts already fully weighted onto one clip (Idle if present, else whatever loaded first)
+            // instead of leaving every mixer input at 0 until the first real Play() call ramps one in.
+            // That all-zero-weight gap was briefly visible after a QaShotRunner restart: the restart's
+            // eager HeroAnimator.LockAimPose->ApplyAimLock call corrected the hand bone before anything
+            // else ran, but AnimationMixerPlayable's own treatment of an all-zero-weight pose (effectively
+            // "no clip contributing") clobbered it again the moment the real Play() call ramped the first
+            // clip's weight up from 0 - a transient that normal mid-game blends between two already
+            // nonzero-weighted clips never hit.
+            int startIdx = FindIndex("Idle");
+            if (startIdx < 0) startIdx = 0;
+            activeIndex = startIdx;
+            weight[startIdx] = 1f;
+            mixer.SetInputWeight(startIdx, 1f);
             return true;
         }
 
