@@ -130,7 +130,6 @@ namespace OutpostZero
             // QaShotRunner restarting the run mid-frame - never has even a single frame where the hand/muzzle
             // sits at the FBX bind pose instead of the locked aim pose.
             ApplyAimLock();
-            if (root != null && root.name == "Rook" && root.parent != null && root.parent.name == "Squad") Debug.Log("HA_DBG LockAimPose id=" + GetInstanceID() + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
         }
 
         int FindIndex(string contains)
@@ -167,12 +166,8 @@ namespace OutpostZero
             lockUntil = Time.time + Mathf.Max(0.05f, clipList[idx].length);
         }
 
-        bool DebugTag => aimRoot != null && aimRoot.name == "Rook" && aimRoot.parent != null && aimRoot.parent.name == "Squad";
-        int DebugId => GetInstanceID();
-
         void Update()
         {
-            if (DebugTag) Debug.Log("HA_DBG U-start id=" + DebugId + " frame=" + Time.frameCount + " activeIndex=" + activeIndex + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
             if (!graph.IsValid() || activeIndex < 0) return;
             float dt = Time.deltaTime;
             for (int i = 0; i < clipPlayables.Length; i++)
@@ -186,7 +181,6 @@ namespace OutpostZero
                 float t = loopFlag[i] ? localTime[i] % len : Mathf.Min(localTime[i], len);
                 clipPlayables[i].SetTime(t);
             }
-            if (DebugTag) Debug.Log("HA_DBG U-end id=" + DebugId + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
         }
 
         /// <summary>Evaluates the graph itself (Manual time update mode - see Build), then applies the pose
@@ -196,7 +190,6 @@ namespace OutpostZero
         /// first one after a freshly built avatar's Update/LateUpdate start running.</summary>
         void LateUpdate()
         {
-            if (DebugTag) Debug.Log("HA_DBG LU-start id=" + DebugId + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
             if (graph.IsValid()) graph.Evaluate(Time.deltaTime);
             if (hips != null)
             {
@@ -206,7 +199,6 @@ namespace OutpostZero
             }
 
             ApplyAimLock();
-            if (DebugTag) Debug.Log("HA_DBG LU-end id=" + DebugId + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
         }
 
         /// <summary>The actual pose lock: straightens the spine, then overrides the shoulder/elbow/hand
