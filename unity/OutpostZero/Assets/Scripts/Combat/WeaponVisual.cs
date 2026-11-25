@@ -75,10 +75,18 @@ namespace OutpostZero
             return go;
         }
 
+        // Rook's side profile still showed a ~45° muzzle-up carry after the shared mount pitch
+        // that leveled the soldiers; this tips only the hero kit's mesh down in hand space.
+        void LevelHeroMount(Transform model)
+        {
+            if (hero && model != null)
+                model.localRotation = Quaternion.Euler(-40f, 0f, 0f) * model.localRotation;
+        }
+
         GameObject BuildRifle(Transform root, float worldScale)
         {
             var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
-            if (model != null) return model;
+            if (model != null) { LevelHeroMount(model.transform); return model; }
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -93,7 +101,7 @@ namespace OutpostZero
         GameObject BuildShotgun(Transform root, float worldScale)
         {
             var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
-            if (model != null) return model;
+            if (model != null) { LevelHeroMount(model.transform); return model; }
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -110,6 +118,7 @@ namespace OutpostZero
             var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
             if (model != null)
             {
+                LevelHeroMount(model.transform);
                 var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
                 pilot = glow.transform;
                 return model;
