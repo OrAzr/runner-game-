@@ -67,6 +67,12 @@ namespace OutpostZero
                 else squad.Lose(Mathf.Max(0, Mathf.RoundToInt(Tuning.Current.zombieContactDamageMult)));
                 Alive = false; gm.Unregister(this);
                 Effects.Burst(p + Vector3.up, 10, new Color(0.56f, 0.69f, 0.29f), 4f);
+                // Pop() grows and floats the zombie in place for its last 0.16s - played at the raw
+                // contact position that could still be right against (or just inside) Rook's rendered
+                // silhouette, so the dying zombie ballooning in size visibly clipped through him. Nudging
+                // the start position away from the squad first keeps the whole animation clear of him.
+                var away = new Vector3(p.x - sp.x, 0f, p.z - sp.z);
+                transform.position = away.sqrMagnitude > 0.0001f ? p + away.normalized * 0.6f : p + Vector3.back * 0.6f;
                 StartCoroutine(Pop());
                 return;
             }
