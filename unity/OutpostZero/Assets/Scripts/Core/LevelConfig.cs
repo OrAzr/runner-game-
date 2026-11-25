@@ -51,11 +51,61 @@ namespace OutpostZero
     {
         public const int Designed = 10;
 
+        // QA-only: the same "-qaShots" flag QaShotRunner checks also makes every BuildRun() load a short,
+        // compressed layout instead of the real table, so an automated full-run (road, gates, zombies, boss,
+        // end screen) finishes in well under a minute instead of the shipped ~35s-per-level-times-the-boss-
+        // fight. Shipped builds never pass this flag, so real level lengths are never affected.
+        static bool? qaShortLevel;
+        static bool QaShortLevel
+        {
+            get
+            {
+                if (qaShortLevel == null)
+                {
+                    qaShortLevel = false;
+                    var args = System.Environment.GetCommandLineArgs();
+                    for (int i = 0; i < args.Length; i++) if (args[i] == "-qaShots") { qaShortLevel = true; break; }
+                }
+                return qaShortLevel.Value;
+            }
+        }
+
         public static LevelConfig Build(int levelNumber)
         {
+            if (QaShortLevel) return QaLevel();
             int n = Mathf.Max(1, levelNumber);
             return n <= Designed ? Table(n) : ScaleBeyond(Table(Designed), n - Designed);
         }
+
+        /// <summary>~24s of road at this speed (150 / 6.2), with 3 gates and 2 zombie groups before the
+        /// boss - enough for QaShotRunner to capture a gate pass and zombie combat without waiting through
+        /// a full designed level. Both sides of every gate are plain positive ops (no "#" counters, which
+        /// start negative and only climb if bullets happen to hit them): the automated runner never drags
+        /// to steer, so SquadController.x sits at exactly 0 the whole run and Gate.Update's `x < 0f` side
+        /// pick deterministically always resolves to the right gate - a counter gate there would reliably
+        /// wipe a small squad on every single QA pass instead of being down to the luck a real, steering
+        /// player would have. (startCount isn't set here - Tuning.Apply always overwrites LevelConfig.
+        /// startCount from Tuning.Current.startingSquadSize regardless of this value, so QaShotRunner sets
+        /// that directly before building this level.)
+        ///
+        /// Boss HP is cut hard (900 -> 20): Projectile.Fire's bullets travel in a fixed world direction from
+        /// each shooter's own x position (no homing/convergence onto the target), so only soldiers already
+        /// lined up within the boss's hitRadius of center ever land a hit - a formation spread wide enough
+        /// to read as "a squad" leaves most of the pack's shots missing a single centered target even though
+        /// every one of them is visibly firing, so effective boss dps is far below effectiveShooters * rate
+        /// would suggest. 20 HP still survives a few seconds under capture (so the boss-fight burst frames
+        /// below never catch an empty battlefield) but reliably dies well inside the end-of-run wait.</summary>
+        static LevelConfig QaLevel() => new LevelConfig
+        {
+            runSpeed = 6.2f, bossDistance = 150f, bossHp = 20f, bossSpeed = 2.4f, bossStartGap = 14f, squadCap = 24,
+            gates = new List<GateDef> {
+                new GateDef(20, "+3", "+2"), new GateDef(60, "+2", "+3"), new GateDef(100, "+4", "+2"),
+            },
+            zombies = new List<ZombieGroupDef> {
+                new ZombieGroupDef(40, 0, 3, 3, 1.6f), new ZombieGroupDef(90, -2, 3, 3, 1.6f),
+            },
+            crates = new List<CrateDef> { new CrateDef(70, 3.3f, WeaponType.Shotgun, 6) },
+        };
 
         static LevelConfig Table(int n)
         {

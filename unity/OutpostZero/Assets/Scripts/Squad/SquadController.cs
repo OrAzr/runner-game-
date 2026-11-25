@@ -18,8 +18,8 @@ namespace OutpostZero
         public AutoShooter Shooter { get; private set; }
 
         readonly List<Soldier> soldiers = new List<Soldier>(); // index 0 unused (Rook)
-        LevelConfig level; SteeringInput input; TextMesh countLabel; int shownCount = -1;
-        float vx, lean, countPop;
+        LevelConfig level; SteeringInput input;
+        float vx, lean;
         // Eased toward Formation.SpacingFor's target every frame (see Update) instead of snapping to it,
         // so a gate/wave that jumps Count doesn't yank the whole pack to a new spacing in one frame.
         float spacing;
@@ -34,7 +34,6 @@ namespace OutpostZero
             Rook = gameObject.AddComponent<HeroRook>(); Rook.Build();
             Shooter = gameObject.AddComponent<AutoShooter>(); Shooter.Init(this);
             ShowWeapon(WeaponType.AssaultRifle);
-            countLabel = Prims.Label3D(transform, "1", new Vector3(0, 2.8f, 0), 0.9f, Color.white);
             Count = cfg.startCount;
             spacing = Formation.SpacingFor(Mathf.Min(Count, MaxVisible));
             transform.position = Vector3.zero;
@@ -44,7 +43,11 @@ namespace OutpostZero
         {
             var gm = GameManager.I; float dt = Time.deltaTime;
             bool playing = gm != null && gm.IsPlaying;
-            bool running = playing && gm.State == GameState.Running;
+            // Includes BossFight (not just Running) so soldiers keep playing the run-and-shoot pose - with
+            // the aim override from HeroAnimator.LockAimPose still locking their rifles forward - instead of
+            // falling back to the idle/look-around clip once the squad parks at the boss and stops advancing
+            // (see the p.z clamp below); matches HeroRook.Tick's own running check for the same state.
+            bool running = playing && (gm.State == GameState.Running || gm.State == GameState.BossFight);
             int vis = Mathf.Min(Count, MaxVisible);
             // Eases over roughly a second rather than snapping, so the pack visibly loosens/tightens as
             // Count changes instead of every soldier jumping to a new slot the instant a gate resolves.
@@ -70,17 +73,13 @@ namespace OutpostZero
             Rook.Tick(dt, Radius);
             // A squad-loss hit adds a quick backward pitch on top of the run pose (see RookAvatar.FlinchPitch)
             // instead of interrupting it, so Rook keeps running and shooting through the reaction.
-            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler((running ? 8f : 2f) - Rook.HitFlinch * 22f, 0, lean);
-            if (shownCount != Count) { shownCount = Count; countLabel.text = Count.ToString(); countPop = 1f; }
-            countPop = Mathf.Max(0f, countPop - dt * 3.2f);
-            float pop = 1f + countPop * 0.5f;
-            countLabel.transform.localScale = Vector3.one * pop;
-            // Clearance is measured from Rook's own head (Rook.Height), not a fixed world height tuned for
-            // his old, much shorter primitive body - otherwise the badge sits on his back/head instead of
-            // floating above him. The Radius term still lifts it further for a big squad, whose rear rows
-            // read higher on screen from the high rear chase camera.
-            float clearance = 0.5f;
-            countLabel.transform.localPosition = new Vector3(0, Rook.Height + clearance + Radius * 0.25f + countPop * 0.25f, -0.2f);
+            // Pitch is a small lean-into-the-run tilt (not the hunch fix - see HeroAnimator's Spine/Spine1
+            // correction for that), dropped from 8 to 4 since it compounded with the clip's own forward
+            // curve. Yaw turns Rook's whole visual body ~20 deg toward the camera (3/4 view: shows the
+            // armor/backpack side instead of a flat back view) while he still reads as running forward -
+            // cosmetic only, since fire direction (AutoShooter/Projectile) is always hardcoded world-forward
+            // regardless of this transform's rotation, and there are no colliders on the visual body.
+            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler((running ? 4f : 2f) - Rook.HitFlinch * 22f, 20f, lean);
         }
 
         void SyncBodies(int vis, bool running, float dt)
@@ -148,7 +147,6 @@ namespace OutpostZero
             GameUI.I?.Popup(text, Count >= before);
             Effects.Burst(transform.position + Vector3.up * 1.3f, good ? 16 : 10, good ? new Color(0.56f, 0.78f, 1f) : new Color(1f, 0.42f, 0.33f), 5f);
             GameManager.I.Shake(good ? 0.2f : 0.32f);
-            countPop = 1f;
             if (Count <= 0) GameManager.I.EndRun(false);
         }
 
@@ -156,7 +154,6 @@ namespace OutpostZero
         {
             if (Rook.ShieldActive || n <= 0) return;
             Count = Mathf.Max(0, Count - n);
-            countPop = 1f;
             AudioManager.I?.Play(Sfx.SoldierLost, 0.75f, 1f, 0.06f);
             GameManager.I.Shake(0.15f);
             Rook.PlayHitReaction();

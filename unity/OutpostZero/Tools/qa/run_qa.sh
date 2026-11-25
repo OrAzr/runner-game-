@@ -182,7 +182,7 @@ run_size() {
   start=$(date +%s)
   # Software GL: this box has no discrete GPU. Mesa llvmpipe via Xvfb.
   set +e
-  timeout 180 env LIBGL_ALWAYS_SOFTWARE=1 \
+  timeout 300 env LIBGL_ALWAYS_SOFTWARE=1 \
     xvfb-run -a -s "-screen 0 ${w}x${h}x24" \
     "$PLAYER" \
       -screen-width "$w" -screen-height "$h" -screen-fullscreen 0 \

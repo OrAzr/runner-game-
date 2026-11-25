@@ -82,15 +82,17 @@ namespace OutpostZero
             var renderers = go.GetComponentsInChildren<Renderer>();
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
 
-            // Weapon: hold this project's known +Z-forward convention rather than the hand bone's own
-            // rest-pose rotation (a Mixamo A-pose hand is angled down and across the body, not "forward").
-            // SetParent(.., true) bakes today's world pose as a fixed local offset under the hand bone, so
-            // the weapon still rides along with the hand's subsequent animated position and rotation changes.
+            // Weapon: zero local offset from the hand bone, not a baked "current world pose" snapshot - a
+            // Mixamo A-pose hand is angled down and across the body, not "forward", and HeroAnimator.
+            // LockAimPose now forces the hand bone itself back to aimRoot's +Z-forward convention every
+            // frame, so the socket just needs to ride that rotation exactly instead of inheriting whatever
+            // offset existed at build time (which this body hasn't even posed yet).
             var handBone = FindDeep(root, "mixamorig:RightHand");
             if (handBone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:RightHand bone; weapon will attach to the body root instead of the hand.");
             var socket = new GameObject("WeaponSocket").transform;
-            socket.SetPositionAndRotation((handBone != null ? handBone.position : root.position) + root.forward * 0.03f, root.rotation);
-            socket.SetParent(handBone != null ? handBone : root, true);
+            socket.SetParent(handBone != null ? handBone : root, false);
+            socket.localPosition = Vector3.zero;
+            socket.localRotation = Quaternion.identity;
 
             var headBone = FindDeep(root, "mixamorig:Head");
             if (headBone != null)
@@ -105,7 +107,16 @@ namespace OutpostZero
             var anim = go.AddComponent<HeroAnimator>();
             avatar.Anim = anim.Build(animator, "Models/Hero/rook") ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
-            else avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
+            else
+            {
+                avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
+                avatar.Anim.LockAimPose(root,
+                    FindDeep(root, "mixamorig:RightArm"), FindDeep(root, "mixamorig:RightForeArm"), handBone,
+                    FindDeep(root, "mixamorig:LeftArm"), FindDeep(root, "mixamorig:LeftForeArm"), FindDeep(root, "mixamorig:LeftHand"),
+                    FindDeep(root, "mixamorig:Spine2"),
+                    // Rook-only: straightens the running clip's forward stoop (SoldierAvatar doesn't pass these).
+                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"));
+            }
 
             if (silhouette) TintDark(root);
             return avatar;
