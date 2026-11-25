@@ -176,12 +176,21 @@ namespace OutpostZero
             }
 
             if (aimRoot == null) return;
-            if (rightArm != null) rightArm.rotation = aimRoot.rotation * RightArmAim;
-            if (rightForeArm != null) rightForeArm.rotation = aimRoot.rotation * RightForeArmAim;
-            if (rightHand != null) rightHand.rotation = aimRoot.rotation * RightHandAim;
-            if (leftArm != null) leftArm.rotation = aimRoot.rotation * LeftArmAim;
-            if (leftForeArm != null) leftForeArm.rotation = aimRoot.rotation * LeftForeArmAim;
-            if (leftHand != null) leftHand.rotation = aimRoot.rotation * LeftHandAim;
+            // Arms/hands (and therefore the muzzle, via RightHandAim/LeftHandAim == identity) lock to
+            // aimRoot.parent's rotation rather than aimRoot.rotation itself: SquadController/Soldier write
+            // Rook/soldier's cosmetic yaw+pitch+lean (camera-facing 3/4 turn, run lean, steering tilt, hit
+            // flinch) straight onto aimRoot's own localRotation, so locking to aimRoot.rotation dragged the
+            // rifle through every one of those cosmetic swings - including the ~20 deg yaw added for the 3/4
+            // view, which is exactly what sent the muzzle up over the shoulder instead of down the road. The
+            // parent has no cosmetic rotation of its own (only position moves), so this keeps the rifle
+            // pinned to true forward while the body underneath still turns/leans/flinches freely.
+            var armBasis = aimRoot.parent != null ? aimRoot.parent.rotation : Quaternion.identity;
+            if (rightArm != null) rightArm.rotation = armBasis * RightArmAim;
+            if (rightForeArm != null) rightForeArm.rotation = armBasis * RightForeArmAim;
+            if (rightHand != null) rightHand.rotation = armBasis * RightHandAim;
+            if (leftArm != null) leftArm.rotation = armBasis * LeftArmAim;
+            if (leftForeArm != null) leftForeArm.rotation = armBasis * LeftForeArmAim;
+            if (leftHand != null) leftHand.rotation = armBasis * LeftHandAim;
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);

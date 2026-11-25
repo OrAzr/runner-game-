@@ -21,6 +21,32 @@ namespace OutpostZero
             go.AddComponent<QaShotRunner>();
         }
 
+        // Brief 14: the rifle is supposed to point down the road (world +Z) at all times, independent of
+        // Rook's cosmetic body yaw/lean/flinch - this caught the ~20 deg visual yaw (brief 13) dragging the
+        // whole aim-locked arm chain with it and sending the muzzle up over his shoulder. Checked every
+        // frame of actual play (not just at screenshot instants) so a regression anywhere in the run - the
+        // road, a gate, the boss fight - gets caught instead of just whatever instant a screenshot landed on.
+        const float MinAimDot = 0.85f;
+
+        void Update()
+        {
+            var gm = GameManager.I;
+            if (gm == null || !gm.IsPlaying || gm.Squad == null) return;
+            var squad = gm.Squad;
+            Transform rookMuzzle = squad.Rook != null ? squad.Rook.Muzzle : null;
+            Transform soldierMuzzle = null;
+            for (int i = 1; i < squad.Soldiers.Count; i++)
+            {
+                if (squad.Soldiers[i] != null) { soldierMuzzle = squad.Soldiers[i].Muzzle; break; }
+            }
+            if (rookMuzzle == null && soldierMuzzle == null) return;
+            float rookDot = rookMuzzle != null ? Vector3.Dot(rookMuzzle.forward, Vector3.forward) : 1f;
+            float soldierDot = soldierMuzzle != null ? Vector3.Dot(soldierMuzzle.forward, Vector3.forward) : 1f;
+            Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
+            if (rookDot < MinAimDot || soldierDot < MinAimDot)
+                Debug.LogError("QA_AIM_FAIL rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
+        }
+
         IEnumerator Start()
         {
             var outDir = Arg("-qaOut") ?? Path.Combine(Application.persistentDataPath, "qa");
@@ -148,6 +174,13 @@ namespace OutpostZero
                 if (b > 0) yield return new WaitForSecondsRealtime(0.15f);
                 yield return Capture(outDir, "12-burst-" + b);
             }
+
+            // Brief 14: dedicated side and behind/above close-ups on Rook alone, so a crooked rifle (pointing
+            // up/back over a shoulder instead of down the road) is obvious from an angle the normal chase cam
+            // never shows. Runs through temporary cameras layered on top of the gameplay one (never replacing
+            // it) so nothing here can leak into an actual played frame.
+            yield return CaptureRookAngles(outDir);
+
             if (camFollow != null) { camFollow.offset = savedOffset; camFollow.lookAhead = savedLookAhead; }
 
             // Restart at a spread of squad sizes (well above the default level-1 squadCap at the big end)
@@ -187,6 +220,52 @@ namespace OutpostZero
                 }
             }
             return all.Length > 0 ? all[0] : null;
+        }
+
+        /// <summary>Side and behind/above close-ups on Rook alone, through a temporary camera stacked above
+        /// (never replacing) the gameplay one - depth puts it on top, matching clear/culling/FOV off the
+        /// gameplay camera keeps the shot's look consistent with everything else. Destroyed when done, so
+        /// gameplay rendering is back to just Camera.main for every shot after this.</summary>
+        IEnumerator CaptureRookAngles(string dir)
+        {
+            var gm = GameManager.I;
+            var mainCam = Camera.main;
+            var rookBody = gm != null && gm.Squad != null && gm.Squad.Rook != null ? gm.Squad.Rook.Body : null;
+            if (mainCam == null || rookBody == null) yield break;
+
+            var qaCamGo = new GameObject("QaRookCam");
+            var qaCam = qaCamGo.AddComponent<Camera>();
+            qaCam.clearFlags = mainCam.clearFlags;
+            qaCam.backgroundColor = mainCam.backgroundColor;
+            qaCam.cullingMask = mainCam.cullingMask;
+            qaCam.fieldOfView = mainCam.fieldOfView;
+            qaCam.nearClipPlane = mainCam.nearClipPlane;
+            qaCam.farClipPlane = mainCam.farClipPlane;
+            qaCam.depth = mainCam.depth + 1f;
+
+            // Side profile, level with his chest, square across the road: the clearest angle to tell
+            // whether the rifle is pointing down the road or back across his own body.
+            yield return CaptureFromRookAngle(dir, "12b-rook-side", qaCam, rookBody,
+                new Vector3(2.6f, 1.6f, 0f), Vector3.up * 1.4f, 3, 0.25f);
+            // Raised chase angle from behind/above: this is the exact framing the original bug report
+            // ("sticks up/back over his right shoulder") was spotted from.
+            yield return CaptureFromRookAngle(dir, "12c-rook-behind", qaCam, rookBody,
+                new Vector3(0f, 2.6f, -3.2f), Vector3.up * 1.1f, 3, 0.25f);
+
+            Destroy(qaCamGo);
+        }
+
+        static IEnumerator CaptureFromRookAngle(string dir, string prefix, Camera cam, Transform rook,
+            Vector3 camOffsetFromRook, Vector3 lookOffsetFromRook, int frames, float gapSeconds)
+        {
+            for (int i = 0; i < frames; i++)
+            {
+                if (i > 0) yield return new WaitForSecondsRealtime(gapSeconds);
+                Vector3 focus = rook.position + lookOffsetFromRook;
+                cam.transform.position = rook.position + camOffsetFromRook;
+                cam.transform.rotation = Quaternion.LookRotation((focus - cam.transform.position).normalized, Vector3.up);
+                yield return Capture(dir, prefix + "-" + i);
+            }
         }
 
         static IEnumerator Capture(string dir, string name)
