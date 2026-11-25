@@ -96,6 +96,9 @@ namespace OutpostZero
 
             float rawLength = Mathf.Max(0.001f, size[barrelAxis]);
             float scale = targetLength / rawLength;
+            Debug.Log("WM_DEBUG " + resourceName + " points=" + points.Count + " lo=" + lo + " hi=" + hi + " size=" + size
+                + " barrelAxis=" + barrelAxis + " heightAxis=" + heightAxis + " barrelSign=" + barrelSign + " magazineSign=" + magazineSign
+                + " rawLength=" + rawLength + " scale=" + scale);
             Vector3 forwardDir = AxisUnit(barrelAxis, barrelSign);
             Vector3 upDir = AxisUnit(heightAxis, upSign);
             // The rotation that carries the mesh's own measured forward/up axes onto this project's +Z
