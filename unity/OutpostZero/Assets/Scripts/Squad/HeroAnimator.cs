@@ -110,6 +110,10 @@ namespace OutpostZero
             this.rightArm = rightArm; this.rightForeArm = rightForeArm; this.rightHand = rightHand;
             this.leftArm = leftArm; this.leftForeArm = leftForeArm; this.leftHand = leftHand;
             this.spine2 = spine2; this.spine = spine; this.spine1 = spine1;
+            // Applied once immediately (not just on the next LateUpdate) so a freshly built avatar - e.g.
+            // QaShotRunner restarting the run mid-frame - never has even a single frame where the hand/muzzle
+            // sits at the FBX bind pose instead of the locked aim pose.
+            ApplyAimLock();
         }
 
         int FindIndex(string contains)
@@ -175,6 +179,14 @@ namespace OutpostZero
                 hips.localPosition = new Vector3(hipsLockedXZ.x, hipsSmoothedY, hipsLockedXZ.z);
             }
 
+            ApplyAimLock();
+        }
+
+        /// <summary>The actual pose lock: straightens the spine, then overrides the shoulder/elbow/hand
+        /// chain to the fixed rifle-aim pose. Called every LateUpdate, and once eagerly from LockAimPose
+        /// (see there for why).</summary>
+        void ApplyAimLock()
+        {
             if (aimRoot == null) return;
             // Arms/hands (and therefore the muzzle, via RightHandAim/LeftHandAim == identity) lock to
             // aimRoot.parent's rotation rather than aimRoot.rotation itself: SquadController/Soldier write
