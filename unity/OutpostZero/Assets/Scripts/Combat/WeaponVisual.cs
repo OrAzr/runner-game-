@@ -3,6 +3,9 @@ using UnityEngine;
 namespace OutpostZero
 {
     /// <summary>Primitive gun models. Hero gets the full kit; soldiers get the same silhouettes, smaller.</summary>
+    // After HeroAnimator poses the hands (default order 0), snap the weapon itself to world-forward
+    // so body yaw or a twisted hand socket cannot aim the barrel sideways.
+    [DefaultExecutionOrder(1000)]
     public class WeaponVisual : MonoBehaviour
     {
         public Transform Muzzle { get; private set; }
@@ -75,18 +78,19 @@ namespace OutpostZero
             return go;
         }
 
-        // Rook's side profile still showed a ~45° muzzle-up carry after the shared mount pitch
-        // that leveled the soldiers; this tips only the hero kit's mesh down in hand space.
-        void LevelHeroMount(Transform model)
+        // After the clip has posed the hand, force this weapon (hero and soldiers) to point
+        // straight down the road and sit level. The grip stays in the hand because only
+        // rotation is overwritten; local position is left alone. The child mesh is already
+        // oriented so its barrel follows this transform's +Z.
+        void LateUpdate()
         {
-            if (hero && model != null)
-                model.localRotation = Quaternion.Euler(55f, 0f, 0f) * model.localRotation;
+            transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
         }
 
         GameObject BuildRifle(Transform root, float worldScale)
         {
             var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
-            if (model != null) { LevelHeroMount(model.transform); return model; }
+            if (model != null) return model;
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -101,7 +105,7 @@ namespace OutpostZero
         GameObject BuildShotgun(Transform root, float worldScale)
         {
             var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
-            if (model != null) { LevelHeroMount(model.transform); return model; }
+            if (model != null) return model;
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -118,7 +122,6 @@ namespace OutpostZero
             var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
             if (model != null)
             {
-                LevelHeroMount(model.transform);
                 var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
                 pilot = glow.transform;
                 return model;
