@@ -47,7 +47,10 @@ namespace OutpostZero.EditorTools
             if (!IsSoldierAsset(assetPath)) return;
             if (!(assetImporter is TextureImporter importer)) return;
 
-            importer.maxTextureSize = 512;
+            // One shared material/texture across the whole squad (SoldierAvatar.RiggedMaterial), so the cost
+            // is paid once no matter the squad size - 512 was blurring the goggles/vest detail away at
+            // normal view distance; 1024 keeps that readable without approaching Rook's own 2048.
+            importer.maxTextureSize = 1024;
             importer.textureCompression = TextureImporterCompression.Compressed;
             importer.mipmapEnabled = true;
         }

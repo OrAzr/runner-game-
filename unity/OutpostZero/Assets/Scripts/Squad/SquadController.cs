@@ -8,7 +8,9 @@ namespace OutpostZero
     [RequireComponent(typeof(SteeringInput))]
     public class SquadController : MonoBehaviour
     {
-        public const int MaxVisible = 80;
+        // Caps rendered soldier bodies for performance/readability at big squad sizes; Count (and the
+        // count-badge label, which reads Count directly) still tracks the true squad size above this.
+        public const int MaxVisible = 30;
         public int Count { get; private set; }
         public float Distance => transform.position.z;
         public float Radius => Formation.Radius(Mathf.Min(Count, MaxVisible));

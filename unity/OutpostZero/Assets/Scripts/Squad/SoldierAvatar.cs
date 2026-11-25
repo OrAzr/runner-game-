@@ -16,8 +16,11 @@ namespace OutpostZero
         public bool IsRigged => Anim != null;
 
         // Tuned against RookAvatar's own in-gameplay height (RiggedTargetHeight), not life-size, so soldiers
-        // read as clearly smaller than their commander instead of to-scale with him.
-        const float HeightRatioToRook = 0.825f;
+        // read as clearly smaller than their commander instead of to-scale with him. QA screenshots at 0.825
+        // showed the squad reading almost as tall as Rook once camera-distance perspective was factored in
+        // (soldiers sit closer to the camera than he does), swallowing him entirely at big squad sizes -
+        // dropped into the 60-65% band the brief calls for so he reads as the clearly-larger leader.
+        const float HeightRatioToRook = 0.62f;
         const float TargetHeight = RookAvatar.RiggedTargetHeight * HeightRatioToRook;
 
         static Material sharedMaterial;
@@ -98,8 +101,18 @@ namespace OutpostZero
             if (tex != null && mat != null) mat.mainTexture = tex;
             if (mat != null)
             {
-                if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.3f);
-                if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.05f);
+                // The scene's ambient (OutpostSceneBuilder) is tuned in Gamma color space (ProjectSettings
+                // m_ActiveColorSpace: 0), where bright sky-ambient plus the directional sun sum to well past
+                // 1.0 on upward-facing surfaces with no linear-space falloff to soften it. The soldier
+                // texture's khaki (~0.67 sRGB) clips to near-white there while Rook's darker teal/gunmetal
+                // palette doesn't - same material recipe, same light, different result. A flat albedo tint
+                // pulls the khaki back under the clip point without touching global lighting (which every
+                // other already-reviewed scene element depends on). Glossiness/Metallic dropped near zero so
+                // the rounded helmet doesn't pick up a bright specular highlight on top of that - the
+                // reference art is a flat/matte stylized render, not a glossy plastic one.
+                if (mat.HasProperty("_Color")) mat.SetColor("_Color", new Color(0.72f, 0.7f, 0.64f));
+                if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.04f);
+                if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0f);
             }
             sharedMaterial = mat;
             return sharedMaterial;
