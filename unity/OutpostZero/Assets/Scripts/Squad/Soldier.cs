@@ -3,11 +3,12 @@ using UnityEngine;
 
 namespace OutpostZero
 {
-    /// <summary>One squad member (placeholder low-poly body). Lerps toward its formation slot.</summary>
+    /// <summary>One squad member (rigged Meshy body, primitive-body fallback). Lerps toward its formation slot.</summary>
     public class Soldier : MonoBehaviour
     {
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : transform;
         public bool Dying { get; private set; }
+        SoldierAvatar avatar;
         WeaponVisual weapon;
         float bobSeed;
         Vector3 smoothVel;
@@ -15,12 +16,9 @@ namespace OutpostZero
         public static Soldier Create(Transform parent)
         {
             var go = new GameObject("Soldier"); go.transform.SetParent(parent, false);
-            var t = go.transform;
-            Prims.Box(t, new Vector3(0, 0.16f, 0), new Vector3(0.36f, 0.32f, 0.24f), Palette.Gunmetal);
-            Prims.Box(t, new Vector3(0, 0.55f, 0), new Vector3(0.42f, 0.5f, 0.3f), Palette.Teal);
-            Prims.Part(PrimitiveType.Sphere, t, new Vector3(0, 0.98f, 0), Vector3.one * 0.38f, Prims.Mat(Palette.TealDark));
             var s = go.AddComponent<Soldier>();
-            s.weapon = WeaponVisual.Create(t, false, new Vector3(0.18f, 0.62f, 0.18f));
+            s.avatar = SoldierAvatar.Build(go.transform);
+            s.weapon = s.avatar.Weapon;
             s.bobSeed = Random.value * 10f;
             return s;
         }
@@ -42,11 +40,16 @@ namespace OutpostZero
             // rightmost column punch through the road barriers; re-clamping the actual smoothed position
             // closes that gap regardless of how big the overshoot is.
             p.x = Mathf.Clamp(p.x, -hw, hw);
-            float bob = running ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
+            // The rigged model plays its own Running clip, so the old procedural hop (added on top of every
+            // frame's pose) doubled up with the clip's own motion; the primitive fallback has no locomotion
+            // animation of its own, so it still gets the bob.
+            bool rigged = avatar != null && avatar.IsRigged;
+            float bob = running && !rigged ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
             p.y = bob;
             transform.position = p;
             transform.rotation = Quaternion.Euler(bob * 60f, 0f, lean * 0.65f);
             if (weapon != null) weapon.Tick(dt);
+            if (avatar != null) avatar.Tick(running);
         }
 
         /// <summary>Short, snappy knockback-and-shrink instead of vanishing instantly or ragdolling away

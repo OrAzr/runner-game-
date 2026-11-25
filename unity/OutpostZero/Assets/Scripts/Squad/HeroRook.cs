@@ -11,6 +11,7 @@ namespace OutpostZero
         public float Cooldown { get; private set; }
         public bool ShieldActive => ShieldTime > 0;
         public Transform Body { get; private set; }
+        public float Height => avatar != null ? avatar.Height : RookAvatar.BaseRiggedHeight;
         public bool IsRigged => avatar != null && avatar.IsRigged;
         public float HitFlinch => avatar != null ? avatar.FlinchPitch : 0f;
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;

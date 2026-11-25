@@ -39,6 +39,11 @@ namespace OutpostZero
         // Squad
         public float squadCapMult = 1f;
         public int startingSquadSize = 1;
+        // Formation.SpacingFor's loose/tight ends (meters between soldier centers), read directly each
+        // frame rather than routed through Apply/LevelConfig - matches how AutoShooter reads Tuning.Current
+        // live for per-frame values instead of a baked-in snapshot.
+        public float squadSpacingMax = 0.95f; // small squads (<=5 visible): generous, airy gaps
+        public float squadSpacingMin = 0.58f; // squad at/above the visible cap: tight but non-overlapping
 
         // Boss
         public float bossHpMult = 1f;

@@ -37,8 +37,15 @@ namespace OutpostZero
         /// is boosted well past life-size on purpose. CharacterStage's select-screen preview re-frames its
         /// camera from the model's own bounds (see CharacterStage.FrameHero), so it isn't affected by this.</summary>
         public const float GameplayScale = 2.5f;
-        const float BaseRiggedHeight = 1.47f; // primitive body's own height (1.05 scale * ~1.4m)
-        const float RiggedTargetHeight = BaseRiggedHeight * GameplayScale;
+        public const float BaseRiggedHeight = 1.47f; // primitive body's own height (1.05 scale * ~1.4m)
+        /// <summary>Rook's actual in-gameplay world height when the rigged model loads. SoldierAvatar sizes
+        /// the squad relative to this so soldiers read as clearly smaller than their commander.</summary>
+        public const float RiggedTargetHeight = BaseRiggedHeight * GameplayScale;
+
+        /// <summary>Rook's actual built height (RiggedTargetHeight for the rigged model, BaseRiggedHeight for
+        /// the primitive fallback) - SquadController reads this to float the squad-count badge above his head
+        /// instead of a fixed offset that only matched one of the two body sizes.</summary>
+        public float Height { get; private set; }
 
         /// <summary>HeroRook and CharacterStage only ever call this factory and read Root/Chest/ArmL/ArmR/
         /// Cape/Weapon/Anim plus Tick(). Tries the rigged Meshy FBX first and falls back to the primitive body
@@ -80,6 +87,7 @@ namespace OutpostZero
             // SetParent(.., true) bakes today's world pose as a fixed local offset under the hand bone, so
             // the weapon still rides along with the hand's subsequent animated position and rotation changes.
             var handBone = FindDeep(root, "mixamorig:RightHand");
+            if (handBone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:RightHand bone; weapon will attach to the body root instead of the hand.");
             var socket = new GameObject("WeaponSocket").transform;
             socket.SetPositionAndRotation((handBone != null ? handBone.position : root.position) + root.forward * 0.03f, root.rotation);
             socket.SetParent(handBone != null ? handBone : root, true);
@@ -92,10 +100,10 @@ namespace OutpostZero
                 glow.transform.SetParent(headBone, true);
             }
 
-            var avatar = new RookAvatar { Root = root };
-            avatar.Weapon = WeaponVisual.Create(socket, true, Vector3.zero);
+            var avatar = new RookAvatar { Root = root, Height = RiggedTargetHeight };
+            avatar.Weapon = WeaponVisual.Create(socket, true, Vector3.zero, GameplayScale);
             var anim = go.AddComponent<HeroAnimator>();
-            avatar.Anim = anim.Build(animator) ? anim : null;
+            avatar.Anim = anim.Build(animator, "Models/Hero/rook") ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
             else avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
 
@@ -103,7 +111,9 @@ namespace OutpostZero
             return avatar;
         }
 
-        static Transform FindDeep(Transform root, string name)
+        /// <summary>Depth-first bone lookup by exact name, shared with SoldierAvatar for the same
+        /// Mixamo-rig hand/hips attach points.</summary>
+        public static Transform FindDeep(Transform root, string name)
         {
             if (root.name == name) return root;
             for (int i = 0; i < root.childCount; i++)
@@ -130,7 +140,7 @@ namespace OutpostZero
 
         static RookAvatar BuildPrimitive(Transform parent, bool silhouette)
         {
-            var avatar = new RookAvatar();
+            var avatar = new RookAvatar { Height = BaseRiggedHeight };
             var go = new GameObject("Rook");
             go.transform.SetParent(parent, false);
             avatar.Root = go.transform;

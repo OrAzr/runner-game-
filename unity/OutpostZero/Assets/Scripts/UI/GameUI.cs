@@ -56,12 +56,14 @@ namespace OutpostZero
             return b;
         }
         /// <summary>Like Btn() but anchored at an arbitrary point (e.g. (1, 0.5) for a right-edge-relative
-        /// button) instead of always the parent's center - used by rows whose parent width isn't fixed.</summary>
-        Button EdgeBtn(string n, Transform p, string label, Color c, Vector2 anchor, Vector2 center, Vector2 size, UnityEngine.Events.UnityAction onClick)
+        /// button) instead of always the parent's center - used by rows whose parent width isn't fixed.
+        /// labelColor defaults to white rather than Btn()'s dark label: EdgeBtn's only callers are the tuning
+        /// row -/+ buttons, which sit on Teal/TealDark backgrounds where a dark glyph is nearly invisible.</summary>
+        Button EdgeBtn(string n, Transform p, string label, Color c, Vector2 anchor, Vector2 center, Vector2 size, UnityEngine.Events.UnityAction onClick, Color? labelColor = null)
         {
             var img = Img(n, p, c, anchor, anchor, center - size / 2, center + size / 2);
             var b = img.gameObject.AddComponent<Button>(); b.onClick.AddListener(onClick);
-            Txt("Label", img.transform, label, 40, new Color(0.1f, 0.1f, 0.1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Txt("Label", img.transform, label, 40, labelColor ?? Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             return b;
         }
 
@@ -319,7 +321,7 @@ namespace OutpostZero
         }
 
         // ================= Tuning screen =================
-        enum TuneKind { Mult, Percent, Int, CapOrOff }
+        enum TuneKind { Mult, Percent, Int, CapOrOff, Meters }
 
         class TuneSpec
         {
@@ -338,6 +340,8 @@ namespace OutpostZero
             new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = min, Max = max, Kind = TuneKind.Int };
         static TuneSpec CapOrOff(string label, Func<float> get, Action<float> set, float step, float max) =>
             new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = 0f, Max = max, Kind = TuneKind.CapOrOff };
+        static TuneSpec Meters(string label, Func<float> get, Action<float> set, float step, float min, float max) =>
+            new TuneSpec { Label = label, Get = get, Set = set, Step = step, Min = min, Max = max, Kind = TuneKind.Meters };
 
         // Get/Set always go through Tuning.Current (never a cached local) so rows stay correct after
         // RESET/PASTE swap in a brand new TuningSettings instance underneath them.
@@ -368,6 +372,8 @@ namespace OutpostZero
             ("SQUAD", new[] {
                 Mult("Squad cap", () => Tuning.Current.squadCapMult, v => Tuning.Current.squadCapMult = v, 0.1f, 0.2f, 5f),
                 IntSpec("Starting squad size", () => Tuning.Current.startingSquadSize, v => Tuning.Current.startingSquadSize = Mathf.RoundToInt(v), 1f, 1f, 80f),
+                Meters("Spacing (small squad)", () => Tuning.Current.squadSpacingMax, v => Tuning.Current.squadSpacingMax = v, 0.05f, 0.3f, 2f),
+                Meters("Spacing (at cap)", () => Tuning.Current.squadSpacingMin, v => Tuning.Current.squadSpacingMin = v, 0.05f, 0.3f, 2f),
             }),
             ("BOSS", new[] {
                 Mult("Boss HP", () => Tuning.Current.bossHpMult, v => Tuning.Current.bossHpMult = v, 0.1f, 0.1f, 10f),
@@ -386,6 +392,7 @@ namespace OutpostZero
                 case TuneKind.Percent: return Mathf.RoundToInt(v * 100f) + "%";
                 case TuneKind.Int: return Mathf.RoundToInt(v).ToString();
                 case TuneKind.CapOrOff: return v <= 0f ? "OFF" : Mathf.RoundToInt(v).ToString();
+                case TuneKind.Meters: return v.ToString("0.00") + "m";
                 default: return v.ToString("0.00") + "x";
             }
         }
