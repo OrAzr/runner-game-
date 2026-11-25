@@ -191,6 +191,13 @@ namespace OutpostZero
             if (leftArm != null) leftArm.rotation = armBasis * LeftArmAim;
             if (leftForeArm != null) leftForeArm.rotation = armBasis * LeftForeArmAim;
             if (leftHand != null) leftHand.rotation = armBasis * LeftHandAim;
+            if (spine != null && Time.frameCount % 37 == 0)
+                Debug.Log("QA_DEBUG_AIM armBasisEuler=" + armBasis.eulerAngles
+                    + " aimRootParentName=" + (aimRoot.parent != null ? aimRoot.parent.name : "null")
+                    + " rightHandRotEuler=" + (rightHand != null ? rightHand.rotation.eulerAngles.ToString() : "n/a")
+                    + " rightHandLossyScale=" + (rightHand != null ? rightHand.lossyScale.ToString() : "n/a")
+                    + " aimRootLossyScale=" + aimRoot.lossyScale
+                    + " muzzleFwd=" + (rightHand != null ? rightHand.forward.ToString() : "n/a"));
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);
