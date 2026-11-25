@@ -45,7 +45,7 @@ namespace OutpostZero
             if (rookMuzzle == null && soldierMuzzle == null) return;
             float rookDot = rookMuzzle != null ? Vector3.Dot(rookMuzzle.forward, Vector3.forward) : 1f;
             float soldierDot = soldierMuzzle != null ? Vector3.Dot(soldierMuzzle.forward, Vector3.forward) : 1f;
-            Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
+            Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3") + " QA_DEBUG_STABLE rookStable=" + rookStable + " soldierStable=" + soldierStable);
             // A body whose renderers are still hidden (HeroAnimator.HideUntilStable, right after it's first
             // built) isn't actually visible yet, so a low dot there isn't a real on-screen glitch - treated
             // the same as "no muzzle to check" rather than skipped outright, so it still shows up in the
