@@ -212,6 +212,10 @@ namespace OutpostZero
 
         public void ShowMenu()
         {
+            // A restart (BuildRun/StartRun) right on the heels of a defeat can land in the window before
+            // ShowEnd's own delayed RevealEnd fires; without canceling it, that stale Invoke still flips
+            // end back on a few frames later, popping the old DEFEAT panel up over the new, live run.
+            CancelInvoke(nameof(RevealEnd));
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
             if (tuning != null) tuning.SetActive(false);
@@ -220,6 +224,7 @@ namespace OutpostZero
         }
         public void ShowHud()
         {
+            CancelInvoke(nameof(RevealEnd)); // see ShowMenu
             if (select != null) select.SetActive(false);
             if (stage != null) stage.Hide();
             if (tuning != null) tuning.SetActive(false);
