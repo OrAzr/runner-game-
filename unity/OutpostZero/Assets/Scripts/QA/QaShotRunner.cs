@@ -84,16 +84,23 @@ namespace OutpostZero
             yield return new WaitForSecondsRealtime(3f);
             yield return Capture(outDir, "07-gameplay-5s");
 
-            // Restart with a big squad (well above the default level-1 squadCap) so QA can check that a
-            // 40-strong crowd still reads cleanly - formation spacing and the count badge are tuned against
-            // the default 1-3 soldier squad otherwise, and a crowd this size is where spacing bugs show up.
+            // Restart at a spread of squad sizes (well above the default level-1 squadCap at the big end)
+            // so QA can compare Formation's dynamic spacing across the whole range in one pass: 3 and 10
+            // should read loose/airy, 20 and 40 progressively tighter but still organic, never a grid.
+            // squadCapMult stays fixed at 4x (level 1's base squadCap=12, so cap=48) across all four shots
+            // - big enough to hold even the largest requested size - so only startingSquadSize changes.
             Tuning.Current.squadCapMult = 4f;
-            Tuning.Current.startingSquadSize = 40;
-            GameManager.I.BuildRun();
-            GameManager.I.StartRun();
-            Canvas.ForceUpdateCanvases();
-            yield return new WaitForSecondsRealtime(2f);
-            yield return Capture(outDir, "08-big-squad");
+            int[] squadShotSizes = { 3, 10, 20, 40 };
+            string[] squadShotNames = { "08-squad-03", "09-squad-10", "10-squad-20", "11-squad-40" };
+            for (int i = 0; i < squadShotSizes.Length; i++)
+            {
+                Tuning.Current.startingSquadSize = squadShotSizes[i];
+                GameManager.I.BuildRun();
+                GameManager.I.StartRun();
+                Canvas.ForceUpdateCanvases();
+                yield return new WaitForSecondsRealtime(2f);
+                yield return Capture(outDir, squadShotNames[i]);
+            }
 
             File.WriteAllText(Path.Combine(outDir, "DONE"),
                 DateTime.UtcNow.ToString("o") + "\n" + Screen.width + "x" + Screen.height + "\n");

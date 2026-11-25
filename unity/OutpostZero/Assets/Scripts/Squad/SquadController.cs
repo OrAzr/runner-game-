@@ -13,13 +13,16 @@ namespace OutpostZero
         public const int MaxVisible = 30;
         public int Count { get; private set; }
         public float Distance => transform.position.z;
-        public float Radius => Formation.Radius(Mathf.Min(Count, MaxVisible));
+        public float Radius => Formation.Radius(Mathf.Min(Count, MaxVisible), spacing);
         public HeroRook Rook { get; private set; }
         public AutoShooter Shooter { get; private set; }
 
         readonly List<Soldier> soldiers = new List<Soldier>(); // index 0 unused (Rook)
         LevelConfig level; SteeringInput input; TextMesh countLabel; int shownCount = -1;
         float vx, lean, countPop;
+        // Eased toward Formation.SpacingFor's target every frame (see Update) instead of snapping to it,
+        // so a gate/wave that jumps Count doesn't yank the whole pack to a new spacing in one frame.
+        float spacing;
 
         public IReadOnlyList<Soldier> Soldiers => soldiers;
 
@@ -33,6 +36,7 @@ namespace OutpostZero
             ShowWeapon(WeaponType.AssaultRifle);
             countLabel = Prims.Label3D(transform, "1", new Vector3(0, 2.8f, 0), 0.9f, Color.white);
             Count = cfg.startCount;
+            spacing = Formation.SpacingFor(Mathf.Min(Count, MaxVisible));
             transform.position = Vector3.zero;
         }
 
@@ -41,6 +45,10 @@ namespace OutpostZero
             var gm = GameManager.I; float dt = Time.deltaTime;
             bool playing = gm != null && gm.IsPlaying;
             bool running = playing && gm.State == GameState.Running;
+            int vis = Mathf.Min(Count, MaxVisible);
+            // Eases over roughly a second rather than snapping, so the pack visibly loosens/tightens as
+            // Count changes instead of every soldier jumping to a new slot the instant a gate resolves.
+            spacing = Mathf.Lerp(spacing, Formation.SpacingFor(vis), Mathf.Min(1f, dt * 1.2f));
             if (playing)
             {
                 var p = transform.position;
@@ -58,7 +66,7 @@ namespace OutpostZero
                 lean = Mathf.Lerp(lean, Mathf.Clamp(-vx * 3.2f, -18f, 18f), Mathf.Min(1f, dt * 9f));
                 transform.position = p;
             }
-            SyncBodies(running, dt);
+            SyncBodies(vis, running, dt);
             Rook.Tick(dt, Radius);
             // A squad-loss hit adds a quick backward pitch on top of the run pose (see RookAvatar.FlinchPitch)
             // instead of interrupting it, so Rook keeps running and shooting through the reaction.
@@ -75,18 +83,18 @@ namespace OutpostZero
             countLabel.transform.localPosition = new Vector3(0, Rook.Height + clearance + Radius * 0.25f + countPop * 0.25f, -0.2f);
         }
 
-        void SyncBodies(bool running, float dt)
+        void SyncBodies(int vis, bool running, float dt)
         {
-            int vis = Mathf.Min(Count, MaxVisible);
             while (soldiers.Count < Mathf.Max(1, vis)) soldiers.Add(soldiers.Count == 0 ? null : SpawnSoldier(soldiers.Count, vis));
             // Removed soldiers play a short death pop themselves (Soldier.Kill) rather than vanishing
             // instantly, so they're dropped from the formation list immediately but keep animating on their
             // own until the coroutine destroys them.
             for (int i = soldiers.Count - 1; i >= Mathf.Max(1, vis); i--) { if (soldiers[i]) soldiers[i].Kill(); soldiers.RemoveAt(i); }
             float hw = level.roadHalfWidth - 0.3f;
+            float t = Time.time;
             for (int i = 1; i < soldiers.Count; i++)
             {
-                var slot = transform.position + Formation.Offset(i, vis, vx);
+                var slot = transform.position + Formation.Offset(i, vis, vx, spacing, t);
                 slot.x = Mathf.Clamp(slot.x, -hw, hw);
                 soldiers[i].Tick(slot, running, dt, lean, hw);
             }
@@ -94,7 +102,7 @@ namespace OutpostZero
             // every frame's pose) doubled up with the clip's own motion and read as a visible mid-air bounce;
             // the primitive fallback has no locomotion animation of its own, so it still gets the bob.
             float bob = running && !Rook.IsRigged ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0f;
-            Rook.Body.localPosition = Formation.Offset(0, vis, vx) + Vector3.up * bob;
+            Rook.Body.localPosition = Formation.Offset(0, vis, vx, spacing, t) + Vector3.up * bob;
             Rook.Body.gameObject.SetActive(Count > 0);
         }
 
@@ -102,7 +110,7 @@ namespace OutpostZero
         {
             var s = Soldier.Create(transform.parent);
             s.ShowWeapon(Shooter != null ? Shooter.Current : WeaponType.AssaultRifle);
-            s.transform.position = transform.position + Formation.Offset(i, vis, vx) + Vector3.back * 1.8f;
+            s.transform.position = transform.position + Formation.Offset(i, vis, vx, spacing, Time.time) + Vector3.back * 1.8f;
             return s;
         }
 
