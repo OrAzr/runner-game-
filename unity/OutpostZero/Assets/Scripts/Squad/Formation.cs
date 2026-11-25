@@ -8,7 +8,11 @@ namespace OutpostZero
     /// Soldier.Tick is solely responsible for smoothing the walk from slot to slot.</summary>
     public static class Formation
     {
-        public const float Spacing = 0.42f;
+        // Shoulder-to-shoulder width of the rigged soldier model at its in-game scale (SoldierAvatar.
+        // TargetHeight) is ~0.69m (measured arm-socket-to-arm-socket on the bind pose, scaled). 0.42 was
+        // tuned for the old thin primitive body and let neighbouring rigged soldiers interpenetrate almost
+        // completely; spacing needs to clear that shoulder width with a small margin so bodies never overlap.
+        public const float Spacing = 0.8f;
 
         /// <summary>Row i sits behind the hero; wider squads get wider rows (fewer, deeper rows) instead of
         /// an ever-widening single rank, so the block stays roughly road-width even at MaxVisible.</summary>

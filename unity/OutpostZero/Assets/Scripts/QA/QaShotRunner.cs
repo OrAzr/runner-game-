@@ -84,6 +84,17 @@ namespace OutpostZero
             yield return new WaitForSecondsRealtime(3f);
             yield return Capture(outDir, "07-gameplay-5s");
 
+            // Restart with a big squad (well above the default level-1 squadCap) so QA can check that a
+            // 40-strong crowd still reads cleanly - formation spacing and the count badge are tuned against
+            // the default 1-3 soldier squad otherwise, and a crowd this size is where spacing bugs show up.
+            Tuning.Current.squadCapMult = 4f;
+            Tuning.Current.startingSquadSize = 40;
+            GameManager.I.BuildRun();
+            GameManager.I.StartRun();
+            Canvas.ForceUpdateCanvases();
+            yield return new WaitForSecondsRealtime(2f);
+            yield return Capture(outDir, "08-big-squad");
+
             File.WriteAllText(Path.Combine(outDir, "DONE"),
                 DateTime.UtcNow.ToString("o") + "\n" + Screen.width + "x" + Screen.height + "\n");
             Debug.Log("[QA] shots written to " + outDir);

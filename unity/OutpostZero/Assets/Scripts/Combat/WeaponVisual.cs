@@ -12,7 +12,11 @@ namespace OutpostZero
         float recoil;
         bool hero;
 
-        public static WeaponVisual Create(Transform parent, bool heroKit, Vector3 localPos)
+        /// <summary>worldScale is the body's own blow-up factor (RookAvatar.GameplayScale for a rigged body,
+        /// 1 for the life-size primitive fallback). The rigged model's target lengths below were tuned as
+        /// absolute world meters before GameplayScale existed, so without this the gun reads as a tiny sliver
+        /// in the oversized rigged hand - this scales the target length up to match whichever body it rides.</summary>
+        public static WeaponVisual Create(Transform parent, bool heroKit, Vector3 localPos, float worldScale = 1f)
         {
             var go = new GameObject(heroKit ? "HeroWeapon" : "Weapon");
             go.transform.SetParent(parent, false);
@@ -22,9 +26,9 @@ namespace OutpostZero
             var v = go.AddComponent<WeaponVisual>();
             v.hero = heroKit;
             v.rest = localPos;
-            v.rifle = v.BuildRifle(go.transform);
-            v.shotgun = v.BuildShotgun(go.transform);
-            v.flameThrower = v.BuildFlamethrower(go.transform);
+            v.rifle = v.BuildRifle(go.transform, worldScale);
+            v.shotgun = v.BuildShotgun(go.transform, worldScale);
+            v.flameThrower = v.BuildFlamethrower(go.transform, worldScale);
             var muzzle = new GameObject("Muzzle");
             v.Muzzle = muzzle.transform;
             v.Muzzle.SetParent(go.transform, false);
@@ -71,13 +75,14 @@ namespace OutpostZero
             return go;
         }
 
-        GameObject BuildRifle(Transform root)
+        GameObject BuildRifle(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength, out _);
+            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
             if (model != null) return model;
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
+            t.localScale = Vector3.one * worldScale;
             Prims.Box(t, new Vector3(0f, 0f, -0.08f), new Vector3(0.07f, 0.08f, 0.22f), Steel);
             Barrel(t, new Vector3(0f, 0.02f, 0.28f), 0.025f, 0.46f, Dark());
             Prims.Box(t, new Vector3(0f, -0.06f, 0.02f), new Vector3(0.05f, 0.1f, 0.06f), Palette.Gunmetal);
@@ -85,13 +90,14 @@ namespace OutpostZero
             return g;
         }
 
-        GameObject BuildShotgun(Transform root)
+        GameObject BuildShotgun(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength, out _);
+            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
             if (model != null) return model;
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
+            t.localScale = Vector3.one * worldScale;
             Prims.Box(t, new Vector3(0f, 0f, -0.1f), new Vector3(0.08f, 0.09f, 0.2f), Palette.Orange);
             Barrel(t, new Vector3(0f, 0.03f, 0.22f), 0.04f, 0.4f, Dark());
             Barrel(t, new Vector3(0f, 0.0f, 0.2f), 0.028f, 0.36f, Metal());
@@ -99,9 +105,9 @@ namespace OutpostZero
             return g;
         }
 
-        GameObject BuildFlamethrower(Transform root)
+        GameObject BuildFlamethrower(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength, out var tip);
+            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
             if (model != null)
             {
                 var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
@@ -111,6 +117,7 @@ namespace OutpostZero
 
             var g = new GameObject("Flamethrower"); g.transform.SetParent(root, false);
             var t = g.transform;
+            t.localScale = Vector3.one * worldScale;
             Prims.Box(t, new Vector3(0f, 0f, -0.02f), new Vector3(0.1f, 0.1f, 0.22f), Palette.Gunmetal);
             Barrel(t, new Vector3(0f, 0.02f, 0.32f), 0.045f, 0.5f, Dark());
             Barrel(t, new Vector3(-0.1f, -0.02f, -0.02f), 0.07f, 0.22f, Metal());

@@ -19,7 +19,11 @@ namespace OutpostZero
         {
             tipLocal = new Vector3(0f, 0f, targetLength * 0.5f);
             var prefab = Resources.Load<GameObject>(ResourceRoot + resourceName);
-            if (prefab == null) return null;
+            if (prefab == null)
+            {
+                Debug.LogWarning("[Outpost Zero] Weapon model resource missing: " + ResourceRoot + resourceName + "; falling back to the primitive gun.");
+                return null;
+            }
 
             var go = Object.Instantiate(prefab);
             go.name = resourceName;
@@ -29,7 +33,12 @@ namespace OutpostZero
             go.transform.localScale = Vector3.one;
 
             var renderers = go.GetComponentsInChildren<Renderer>();
-            if (renderers.Length == 0) { Object.Destroy(go); return null; }
+            if (renderers.Length == 0)
+            {
+                Debug.LogWarning("[Outpost Zero] Weapon model " + resourceName + " has no renderers; falling back to the primitive gun.");
+                Object.Destroy(go);
+                return null;
+            }
 
             var bounds = renderers[0].bounds;
             for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);

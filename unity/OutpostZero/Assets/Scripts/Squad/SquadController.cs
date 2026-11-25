@@ -65,7 +65,12 @@ namespace OutpostZero
             countPop = Mathf.Max(0f, countPop - dt * 3.2f);
             float pop = 1f + countPop * 0.5f;
             countLabel.transform.localScale = Vector3.one * pop;
-            countLabel.transform.localPosition = new Vector3(0, 2.55f + Radius * 0.25f + countPop * 0.25f, -0.2f);
+            // Clearance is measured from Rook's own head (Rook.Height), not a fixed world height tuned for
+            // his old, much shorter primitive body - otherwise the badge sits on his back/head instead of
+            // floating above him. The Radius term still lifts it further for a big squad, whose rear rows
+            // read higher on screen from the high rear chase camera.
+            float clearance = 0.5f;
+            countLabel.transform.localPosition = new Vector3(0, Rook.Height + clearance + Radius * 0.25f + countPop * 0.25f, -0.2f);
         }
 
         void SyncBodies(bool running, float dt)

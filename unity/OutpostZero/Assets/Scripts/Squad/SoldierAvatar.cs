@@ -63,12 +63,15 @@ namespace OutpostZero
             // Same hand-bone socket convention as RookAvatar.BuildRigged, so the shared rifle model rides
             // the hand's animated pose instead of the Mixamo rest-pose angle.
             var handBone = RookAvatar.FindDeep(root, "mixamorig:RightHand");
+            if (handBone == null) Debug.LogWarning("[Outpost Zero] soldier.fbx has no mixamorig:RightHand bone; weapon will attach to the body root instead of the hand.");
             var socket = new GameObject("WeaponSocket").transform;
             socket.SetPositionAndRotation((handBone != null ? handBone.position : root.position) + root.forward * 0.02f, root.rotation);
             socket.SetParent(handBone != null ? handBone : root, true);
 
             var avatar = new SoldierAvatar { Root = root };
-            avatar.Weapon = WeaponVisual.Create(socket, false, Vector3.zero);
+            // Same body-blow-up factor as RookAvatar.BuildRigged, so the squad's rifles read at the same
+            // proportions as the hero's instead of as a tiny sliver lost against the inflated rigged body.
+            avatar.Weapon = WeaponVisual.Create(socket, false, Vector3.zero, RookAvatar.GameplayScale);
             var anim = go.AddComponent<HeroAnimator>();
             avatar.Anim = anim.Build(animator, "Models/Soldier/soldier") ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
