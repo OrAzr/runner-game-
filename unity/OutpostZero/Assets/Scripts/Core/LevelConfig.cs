@@ -81,12 +81,18 @@ namespace OutpostZero
         /// boss - enough for QaShotRunner to capture a gate pass and zombie combat without waiting through
         /// a full designed level. Boss HP is cut hard (900 -> 60) so the fight itself also resolves quickly
         /// under automated capture instead of running for a minute against whatever squad size QA happens
-        /// to have at that point.</summary>
+        /// to have at that point. Both sides of every gate are plain positive ops (no "#" counters, which
+        /// start negative and only climb if bullets happen to hit them) and startCount is bumped from the
+        /// normal 1 to 4: the automated runner never drags to steer, so SquadController.x sits at exactly 0
+        /// the whole run and Gate.Update's `x < 0f` side pick deterministically always resolves to the right
+        /// gate - a counter gate there would reliably wipe a 1-soldier squad on every single QA pass instead
+        /// of being down to the luck a real, steering player would have.</summary>
         static LevelConfig QaLevel() => new LevelConfig
         {
-            runSpeed = 6.2f, bossDistance = 150f, bossHp = 60f, bossSpeed = 2.4f, bossStartGap = 14f, squadCap = 12,
+            runSpeed = 6.2f, bossDistance = 150f, bossHp = 60f, bossSpeed = 2.4f, bossStartGap = 14f, squadCap = 24,
+            startCount = 4,
             gates = new List<GateDef> {
-                new GateDef(20, "+3", "+2"), new GateDef(60, "+2", "#-6"), new GateDef(100, "+4", "+2"),
+                new GateDef(20, "+3", "+2"), new GateDef(60, "+2", "+3"), new GateDef(100, "+4", "+2"),
             },
             zombies = new List<ZombieGroupDef> {
                 new ZombieGroupDef(40, 0, 3, 3, 1.6f), new ZombieGroupDef(90, -2, 3, 3, 1.6f),
