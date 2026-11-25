@@ -80,7 +80,7 @@ namespace OutpostZero
         void LevelHeroMount(Transform model)
         {
             if (hero && model != null)
-                model.localRotation = Quaternion.Euler(40f, 0f, 0f) * model.localRotation;
+                model.localRotation = Quaternion.Euler(55f, 0f, 0f) * model.localRotation;
         }
 
         GameObject BuildRifle(Transform root, float worldScale)
