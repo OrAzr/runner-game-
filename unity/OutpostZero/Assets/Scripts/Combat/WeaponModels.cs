@@ -59,7 +59,9 @@ namespace OutpostZero
             // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
-            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            // -90 Y points the mirrored +X barrel along +Z. An extra -60 Z pitches the muzzle
+            // down: the imported mesh sits about 60 deg muzzle-up in this frame.
+            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, -60f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
