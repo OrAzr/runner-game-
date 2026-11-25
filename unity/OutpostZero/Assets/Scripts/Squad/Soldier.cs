@@ -7,6 +7,9 @@ namespace OutpostZero
     public class Soldier : MonoBehaviour
     {
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : transform;
+        /// <summary>Root of the visible weapon model - see HeroRook.WeaponRoot for why QA reads this
+        /// instead of trusting Muzzle's own rotation.</summary>
+        public Transform WeaponRoot => weapon != null ? weapon.transform : null;
         public bool IsPoseStable => avatar == null || avatar.IsPoseStable;
         public bool Dying { get; private set; }
         SoldierAvatar avatar;

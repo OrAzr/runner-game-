@@ -15,6 +15,10 @@ namespace OutpostZero
         public bool IsRigged => avatar != null && avatar.IsRigged;
         public float HitFlinch => avatar != null ? avatar.FlinchPitch : 0f;
         public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;
+        /// <summary>Root of the visible weapon model (parent of whichever of rifle/shotgun/flamethrower is
+        /// active) - QA reads this to measure the real rendered mesh's geometry directly, rather than
+        /// trusting Muzzle's own rotation.</summary>
+        public Transform WeaponRoot => weapon != null ? weapon.transform : null;
         public bool IsPoseStable => avatar == null || avatar.IsPoseStable;
         GameObject shieldWall;
         RookAvatar avatar;

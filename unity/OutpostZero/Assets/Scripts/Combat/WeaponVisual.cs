@@ -12,6 +12,16 @@ namespace OutpostZero
         float recoil;
         bool hero;
 
+        // Per-type muzzle-tip local position (in this WeaponVisual's own space, same frame Muzzle sits in).
+        // Set from WeaponModels.TryBuild's own measured tip when the real mesh loads (see BuildRifle/
+        // BuildShotgun/BuildFlamethrower), so the empty Muzzle really is the visible barrel's end instead of
+        // an independent guess that can drift out of sync with whatever the mesh's own geometry turns out
+        // to be. Defaults here match the old hardcoded constants, used only by the primitive-gun fallback
+        // (which has no mesh to measure and is never actually hit while the FBX resources exist).
+        Vector3 rifleTip = new Vector3(0f, 0.02f, 0.58f);
+        Vector3 shotgunTip = new Vector3(0f, 0.02f, 0.52f);
+        Vector3 flamethrowerTip = new Vector3(0f, 0.02f, 0.7f);
+
         /// <summary>worldScale is the body's own blow-up factor (RookAvatar.GameplayScale for a rigged body,
         /// 1 for the life-size primitive fallback). The rigged model's target lengths below were tuned as
         /// absolute world meters before GameplayScale existed, so without this the gun reads as a tiny sliver
@@ -42,8 +52,8 @@ namespace OutpostZero
             if (rifle != null) rifle.SetActive(type == WeaponType.AssaultRifle);
             if (shotgun != null) shotgun.SetActive(type == WeaponType.Shotgun);
             if (flameThrower != null) flameThrower.SetActive(type == WeaponType.Flamethrower);
-            float z = type == WeaponType.Shotgun ? 0.52f : type == WeaponType.Flamethrower ? 0.7f : 0.58f;
-            if (Muzzle != null) Muzzle.localPosition = new Vector3(0f, 0.02f, z);
+            Vector3 tip = type == WeaponType.Shotgun ? shotgunTip : type == WeaponType.Flamethrower ? flamethrowerTip : rifleTip;
+            if (Muzzle != null) Muzzle.localPosition = tip;
         }
 
         public void Kick(float amount) { recoil = Mathf.Max(recoil, amount); }
@@ -77,8 +87,8 @@ namespace OutpostZero
 
         GameObject BuildRifle(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
-            if (model != null) return model;
+            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out var tip);
+            if (model != null) { rifleTip = tip; return model; }
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -92,8 +102,8 @@ namespace OutpostZero
 
         GameObject BuildShotgun(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
-            if (model != null) return model;
+            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out var tip);
+            if (model != null) { shotgunTip = tip; return model; }
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -110,6 +120,7 @@ namespace OutpostZero
             var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
             if (model != null)
             {
+                flamethrowerTip = tip;
                 var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
                 pilot = glow.transform;
                 return model;

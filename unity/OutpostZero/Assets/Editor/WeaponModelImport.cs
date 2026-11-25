@@ -14,6 +14,10 @@ namespace OutpostZero.EditorTools
             if (!(assetImporter is ModelImporter importer)) return;
             importer.materialImportMode = ModelImporterMaterialImportMode.None;
             importer.animationType = ModelImporterAnimationType.None;
+            // WeaponModels.TryBuild measures each model's real Unity-space geometry (which way the barrel
+            // and magazine actually point) from its own vertices at runtime rather than assuming a fixed
+            // axis convention - these are tiny props, so keeping them CPU-readable is a trivial memory cost.
+            importer.isReadable = true;
         }
     }
 }

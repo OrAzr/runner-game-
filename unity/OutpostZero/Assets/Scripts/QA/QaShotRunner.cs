@@ -1,5 +1,6 @@
 using System;
 using System.Collections;
+using System.Collections.Generic;
 using System.IO;
 using UnityEngine;
 using UnityEngine.UI;
@@ -26,35 +27,161 @@ namespace OutpostZero
         // whole aim-locked arm chain with it and sending the muzzle up over his shoulder. Checked every
         // frame of actual play (not just at screenshot instants) so a regression anywhere in the run - the
         // road, a gate, the boss fight - gets caught instead of just whatever instant a screenshot landed on.
+        //
+        // Brief 17: this used to read the empty Muzzle child's own transform.forward - which reported a
+        // perfect 1.000 while the visible gun mesh underneath it was actually pointing backwards, because
+        // the mesh was anchored with a wrong fixed axis guess that the empty's rotation never captured.
+        // MeshAimDot ignores Muzzle/HeroAnimator/WeaponModels entirely and re-measures the real rendered
+        // mesh's own world-space vertices fresh every check, independent of anything game code assumes.
         const float MinAimDot = 0.85f;
+        const int MaxSoldiersChecked = 5;
 
         void Update()
         {
             var gm = GameManager.I;
             if (gm == null || !gm.IsPlaying || gm.Squad == null) return;
             var squad = gm.Squad;
-            Transform rookMuzzle = null;
-            bool rookStable = true;
-            if (squad.Rook != null) { rookMuzzle = squad.Rook.Muzzle; rookStable = squad.Rook.IsPoseStable; }
-            Transform soldierMuzzle = null;
-            bool soldierStable = true;
-            for (int i = 1; i < squad.Soldiers.Count; i++)
+
+            float rookDot = 1f; bool rookMagDown = true; bool rookStable = true; bool rookChecked = false;
+            if (squad.Rook != null && squad.Rook.WeaponRoot != null)
             {
-                if (squad.Soldiers[i] != null) { soldierMuzzle = squad.Soldiers[i].Muzzle; soldierStable = squad.Soldiers[i].IsPoseStable; break; }
+                rookChecked = true;
+                rookStable = squad.Rook.IsPoseStable;
+                rookDot = MeshAimDot(squad.Rook.WeaponRoot, out rookMagDown);
             }
-            if (rookMuzzle == null && soldierMuzzle == null) return;
-            float rookDot = rookMuzzle != null ? Vector3.Dot(rookMuzzle.forward, Vector3.forward) : 1f;
-            float soldierDot = soldierMuzzle != null ? Vector3.Dot(soldierMuzzle.forward, Vector3.forward) : 1f;
-            Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3") + " QA_DEBUG_STABLE rookStable=" + rookStable + " soldierStable=" + soldierStable);
+
+            // Worst-case across the sampled soldiers, so one mis-aimed rifle in the crowd can't hide behind
+            // the others averaging out - matches "fail loudly" for any of them, not just Rook. Tracked
+            // separately from the worst-among-STABLE-only soldiers below: a freshly spawned squadmate still
+            // hidden behind HeroAnimator.HideUntilStable shows up in the logged worst dot for visibility,
+            // but can't trip QA_AIM_FAIL on behalf of an already-stable, actually-visible soldier elsewhere
+            // in the sample.
+            float worstSoldierDot = 1f, worstStableSoldierDot = 1f;
+            bool worstSoldierMagDown = true, worstStableSoldierMagDown = true;
+            bool soldierChecked = false;
+            int sampled = 0;
+            for (int i = 1; i < squad.Soldiers.Count && sampled < MaxSoldiersChecked; i++)
+            {
+                var s = squad.Soldiers[i];
+                if (s == null || s.WeaponRoot == null) continue;
+                sampled++;
+                soldierChecked = true;
+                float dot = MeshAimDot(s.WeaponRoot, out bool magDown);
+                if (dot < worstSoldierDot) worstSoldierDot = dot;
+                if (!magDown) worstSoldierMagDown = false;
+                if (!s.IsPoseStable) continue;
+                if (dot < worstStableSoldierDot) worstStableSoldierDot = dot;
+                if (!magDown) worstStableSoldierMagDown = false;
+            }
+
+            if (!rookChecked && !soldierChecked) return;
+            Debug.Log("QA_AIM rook=" + rookDot.ToString("F3") + " soldier=" + worstSoldierDot.ToString("F3"));
             // A body whose renderers are still hidden (HeroAnimator.HideUntilStable, right after it's first
-            // built) isn't actually visible yet, so a low dot there isn't a real on-screen glitch - treated
-            // the same as "no muzzle to check" rather than skipped outright, so it still shows up in the
-            // QA_AIM log for visibility. Every other frame, including the instant a body's renderers come
-            // back on, is checked at full rigor.
-            bool rookFail = rookDot < MinAimDot && rookStable;
-            bool soldierFail = soldierDot < MinAimDot && soldierStable;
+            // built) isn't actually visible yet, so a low dot there isn't a real on-screen glitch - every
+            // other frame, including the instant a body's renderers come back on, is checked at full rigor.
+            bool rookFail = rookChecked && rookStable && (rookDot < MinAimDot || !rookMagDown);
+            bool soldierFail = soldierChecked && (worstStableSoldierDot < MinAimDot || !worstStableSoldierMagDown);
             if (rookFail || soldierFail)
-                Debug.LogError("QA_AIM_FAIL rook=" + rookDot.ToString("F3") + " soldier=" + soldierDot.ToString("F3"));
+                Debug.LogError("QA_AIM_FAIL rook=" + rookDot.ToString("F3") + " soldier=" + worstSoldierDot.ToString("F3"));
+        }
+
+        /// <summary>Measures the currently active weapon mesh's own world-space vertices (GetComponentsInChildren
+        /// skips the two inactive siblings automatically) to find its longest extent (the barrel), slice out the
+        /// thin ends (muzzle tip, magazine) by cross-sectional footprint, and report the real grip-centroid-to-
+        /// muzzle-tip direction against world forward. magazineDown is false if the magazine direction isn't
+        /// roughly downward (dot with Vector3.up >= 0) - a barrel rotated 90 degrees off, as happened in brief
+        /// 16/17, can otherwise still land a deceptively high forward dot by accident.</summary>
+        static float MeshAimDot(Transform weaponRoot, out bool magazineDown)
+        {
+            magazineDown = true;
+            var points = new List<Vector3>();
+            var filters = weaponRoot.GetComponentsInChildren<MeshFilter>();
+            for (int i = 0; i < filters.Length; i++)
+            {
+                var mesh = filters[i].sharedMesh;
+                if (mesh == null || !mesh.isReadable) continue;
+                var verts = mesh.vertices;
+                var m = filters[i].transform.localToWorldMatrix;
+                for (int v = 0; v < verts.Length; v++) points.Add(m.MultiplyPoint3x4(verts[v]));
+            }
+            if (points.Count < 8) return 1f;
+
+            Vector3 lo = points[0], hi = points[0], sum = Vector3.zero;
+            for (int i = 0; i < points.Count; i++) { lo = Vector3.Min(lo, points[i]); hi = Vector3.Max(hi, points[i]); sum += points[i]; }
+            Vector3 centroid = sum / points.Count;
+            Vector3 size = hi - lo;
+
+            int barrelAxis = size.x >= size.y && size.x >= size.z ? 0 : (size.y >= size.z ? 1 : 2);
+            int heightAxis = -1;
+            for (int a = 0; a < 3; a++)
+            {
+                if (a == barrelAxis) continue;
+                if (heightAxis < 0 || size[a] > size[heightAxis]) heightAxis = a;
+            }
+
+            int barrelSign = EndSign(points, barrelAxis, lo, hi);
+            int magazineSign = EndSign(points, heightAxis, lo, hi);
+
+            Vector3 tip = SliceCentroid(points, barrelAxis, barrelSign, lo, hi);
+            Vector3 magazine = SliceCentroid(points, heightAxis, magazineSign, lo, hi);
+
+            Vector3 forward = (tip - centroid).normalized;
+            Vector3 magazineDir = (magazine - centroid).normalized;
+            magazineDown = Vector3.Dot(magazineDir, Vector3.up) < 0f;
+            return Vector3.Dot(forward, Vector3.forward);
+        }
+
+        /// <summary>Mean position of whatever vertices fall within the thin 15% slice at the given end
+        /// (sign>0: near hi[axis]; sign<0: near lo[axis]) - the real tip/magazine point, not an axis-snapped
+        /// guess.</summary>
+        static Vector3 SliceCentroid(List<Vector3> points, int axis, int sign, Vector3 lo, Vector3 hi)
+        {
+            float span = Mathf.Max(0.0001f, hi[axis] - lo[axis]);
+            float sliceMin = sign > 0 ? hi[axis] - span * 0.15f : lo[axis];
+            float sliceMax = sign > 0 ? hi[axis] : lo[axis] + span * 0.15f;
+            Vector3 sum = Vector3.zero;
+            int n = 0;
+            for (int i = 0; i < points.Count; i++)
+            {
+                float v = points[i][axis];
+                if (v < sliceMin || v > sliceMax) continue;
+                sum += points[i];
+                n++;
+            }
+            return n > 0 ? sum / n : (lo + hi) * 0.5f;
+        }
+
+        /// <summary>+1 if the thinner (smaller cross-section) end of this axis is at the max extreme, -1 if
+        /// it's at the min extreme - the sharp/thin feature (muzzle tip on the barrel axis, magazine on the
+        /// height axis). Independent re-implementation of the same idea WeaponModels.TryBuild uses to build
+        /// the mesh in the first place - this one runs on live world-space vertices instead of the raw
+        /// import, so it can't inherit a mistake baked in at build time.</summary>
+        static int EndSign(List<Vector3> points, int axis, Vector3 lo, Vector3 hi)
+        {
+            int o1 = (axis + 1) % 3, o2 = (axis + 2) % 3;
+            float span = Mathf.Max(0.0001f, hi[axis] - lo[axis]);
+            const float sliceFrac = 0.12f;
+            float footprintMin = SliceFootprint(points, axis, lo[axis], lo[axis] + span * sliceFrac, o1, o2);
+            float footprintMax = SliceFootprint(points, axis, hi[axis] - span * sliceFrac, hi[axis], o1, o2);
+            return footprintMax < footprintMin ? 1 : -1;
+        }
+
+        static float SliceFootprint(List<Vector3> points, int axis, float sliceMin, float sliceMax, int o1, int o2)
+        {
+            float o1Min = float.MaxValue, o1Max = float.MinValue, o2Min = float.MaxValue, o2Max = float.MinValue;
+            bool any = false;
+            for (int i = 0; i < points.Count; i++)
+            {
+                float v = points[i][axis];
+                if (v < sliceMin || v > sliceMax) continue;
+                any = true;
+                float a1 = points[i][o1], a2 = points[i][o2];
+                if (a1 < o1Min) o1Min = a1;
+                if (a1 > o1Max) o1Max = a1;
+                if (a2 < o2Min) o2Min = a2;
+                if (a2 > o2Max) o2Max = a2;
+            }
+            return any ? (o1Max - o1Min) * (o2Max - o2Min) : float.MaxValue;
         }
 
         IEnumerator Start()
