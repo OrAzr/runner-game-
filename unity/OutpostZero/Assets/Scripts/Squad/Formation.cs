@@ -26,12 +26,17 @@ namespace OutpostZero
         // pack's radius - without this floor a soldier could land at almost zero depth offset from Rook.
         const float FrontGap = 0.8f;
         const float Jitter = 0.12f;
-        const int LooseCount = 5;  // squads this size or smaller use the loosest (Tuning squadSpacingMax) spacing
+        // A single soldier is already the loosest end of the curve and the visible cap is the tightest -
+        // no flat "<=5" or ">=30" plateau in between, so every soldier added or removed nudges the spacing
+        // by a visible amount instead of only doing so in the middle of the range.
+        const int LooseCount = 1;  // a lone soldier (or Rook alone) gets the loosest (Tuning squadSpacingMax) spacing
         const int TightCount = SquadController.MaxVisible; // spacing bottoms out (squadSpacingMin) by the visible cap
 
         /// <summary>Spacing between soldier centers for a squad currently showing `visibleCount` bodies:
-        /// loose for small squads, smoothly tightening (via smoothstep, not a linear ramp) toward a still
-        /// non-overlapping minimum by the time the squad reaches its visible cap. Callers are expected to
+        /// loose for small squads, continuously tightening toward a still non-overlapping minimum by the
+        /// time the squad reaches its visible cap. Plain linear interpolation (not smoothstep) on purpose -
+        /// smoothstep's zero derivative at both ends reads as a flat "bucket" near 1 and near the cap, which
+        /// is exactly the "not visibly dynamic" complaint this was tuned against. Callers are expected to
         /// ease their own spacing value toward this target over time (see SquadController.spacing) rather
         /// than snap to it the instant Count changes, so the whole pack doesn't jump in one frame.</summary>
         public static float SpacingFor(int visibleCount)
@@ -39,7 +44,6 @@ namespace OutpostZero
             float min = Mathf.Max(BodyWidth * 1.05f, Tuning.Current.squadSpacingMin);
             float max = Mathf.Max(min, Tuning.Current.squadSpacingMax);
             float t = Mathf.InverseLerp(LooseCount, TightCount, visibleCount);
-            t = t * t * (3f - 2f * t); // smoothstep
             return Mathf.Lerp(max, min, t);
         }
 

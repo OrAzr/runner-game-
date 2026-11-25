@@ -12,7 +12,12 @@ namespace OutpostZero
     [Serializable]
     public class TuningSettings
     {
-        public int version = 1;
+        // Bump whenever a saved field's *default* changes in a way that matters if an old save silently
+        // keeps its stale value instead (see Tuning.Load) - squadSpacingMin/Max went from a barely-visible
+        // 0.58-0.95 range to a much wider one, and an old build's saved 0.58/0.95 would otherwise flatten
+        // the new dynamic-spacing behaviour right back to the old narrow one.
+        public const int CurrentVersion = 2;
+        public int version = CurrentVersion;
 
         // Weapons (AutoShooter)
         public float rookFireRateMult = 1f;
@@ -42,8 +47,8 @@ namespace OutpostZero
         // Formation.SpacingFor's loose/tight ends (meters between soldier centers), read directly each
         // frame rather than routed through Apply/LevelConfig - matches how AutoShooter reads Tuning.Current
         // live for per-frame values instead of a baked-in snapshot.
-        public float squadSpacingMax = 0.95f; // small squads (<=5 visible): generous, airy gaps
-        public float squadSpacingMin = 0.58f; // squad at/above the visible cap: tight but non-overlapping
+        public float squadSpacingMax = 1.5f; // a lone soldier/Rook: generous, airy gaps
+        public float squadSpacingMin = 0.55f; // squad at/above the visible cap: tight but non-overlapping
 
         // Boss
         public float bossHpMult = 1f;
@@ -132,8 +137,23 @@ namespace OutpostZero
         {
             string json = PlayerPrefs.GetString(PrefKey, "");
             if (string.IsNullOrEmpty(json)) return new TuningSettings();
-            try { return JsonUtility.FromJson<TuningSettings>(json) ?? new TuningSettings(); }
+            TuningSettings parsed;
+            try { parsed = JsonUtility.FromJson<TuningSettings>(json) ?? new TuningSettings(); }
             catch { return new TuningSettings(); }
+            // A save from before CurrentVersion still deserializes fine (JsonUtility just keeps whatever
+            // was on disk), which is exactly the problem: its old squadSpacingMin/Max would silently
+            // override today's wider defaults and flatten the dynamic-spacing range back to the old one.
+            // Re-stamp just the fields whose defaults changed, not the owner's other tuned knobs.
+            if (parsed.version < TuningSettings.CurrentVersion)
+            {
+                var fresh = new TuningSettings();
+                parsed.squadSpacingMax = fresh.squadSpacingMax;
+                parsed.squadSpacingMin = fresh.squadSpacingMin;
+                parsed.version = TuningSettings.CurrentVersion;
+                PlayerPrefs.SetString(PrefKey, JsonUtility.ToJson(parsed));
+                PlayerPrefs.Save();
+            }
+            return parsed;
         }
 
         public static void Save()

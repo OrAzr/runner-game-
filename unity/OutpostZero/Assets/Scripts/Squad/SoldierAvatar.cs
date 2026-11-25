@@ -63,13 +63,16 @@ namespace OutpostZero
                 if (renderers[i] is SkinnedMeshRenderer smr) smr.quality = SkinQuality.Bone2;
             }
 
-            // Same hand-bone socket convention as RookAvatar.BuildRigged, so the shared rifle model rides
-            // the hand's animated pose instead of the Mixamo rest-pose angle.
+            // Same hand-bone socket convention as RookAvatar.BuildRigged: zero local offset, so the socket
+            // just rides the hand bone's rotation exactly - HeroAnimator.LockAimPose forces that bone back
+            // to a fixed forward-facing pose every frame instead of letting the Running/Run_and_Shoot clip's
+            // own arm swing carry the rifle through random angles.
             var handBone = RookAvatar.FindDeep(root, "mixamorig:RightHand");
             if (handBone == null) Debug.LogWarning("[Outpost Zero] soldier.fbx has no mixamorig:RightHand bone; weapon will attach to the body root instead of the hand.");
             var socket = new GameObject("WeaponSocket").transform;
-            socket.SetPositionAndRotation((handBone != null ? handBone.position : root.position) + root.forward * 0.02f, root.rotation);
-            socket.SetParent(handBone != null ? handBone : root, true);
+            socket.SetParent(handBone != null ? handBone : root, false);
+            socket.localPosition = Vector3.zero;
+            socket.localRotation = Quaternion.identity;
 
             var avatar = new SoldierAvatar { Root = root };
             // Same body-blow-up factor as RookAvatar.BuildRigged, so the squad's rifles read at the same
@@ -81,6 +84,10 @@ namespace OutpostZero
             else
             {
                 avatar.Anim.LockHipsHeight(RookAvatar.FindDeep(root, "mixamorig:Hips"));
+                avatar.Anim.LockAimPose(root,
+                    RookAvatar.FindDeep(root, "mixamorig:RightArm"), RookAvatar.FindDeep(root, "mixamorig:RightForeArm"), handBone,
+                    RookAvatar.FindDeep(root, "mixamorig:LeftArm"), RookAvatar.FindDeep(root, "mixamorig:LeftForeArm"), RookAvatar.FindDeep(root, "mixamorig:LeftHand"),
+                    RookAvatar.FindDeep(root, "mixamorig:Spine2"));
                 // Slight per-soldier speed jitter plus a randomized run-cycle start phase (see HeroAnimator.
                 // Play's startTime) so a crowd of otherwise-identical rigs doesn't move in lockstep.
                 avatar.Anim.Speed = Random.Range(0.92f, 1.08f);

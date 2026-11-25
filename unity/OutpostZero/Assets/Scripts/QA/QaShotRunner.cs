@@ -84,14 +84,40 @@ namespace OutpostZero
             yield return new WaitForSecondsRealtime(3f);
             yield return Capture(outDir, "07-gameplay-5s");
 
+            // squadCapMult stays fixed at 4x (level 1's base squadCap=12, so cap=48) for the rest of this
+            // run - big enough to hold even the largest squad-size shot below - so only startingSquadSize
+            // changes from here on.
+            Tuning.Current.squadCapMult = 4f;
+
+            // Close-up burst: a small squad, zoomed camera, four frames ~0.15s apart while running/shooting
+            // so QA can check the rifle pose (HeroAnimator.LockAimPose) stays pointed forward throughout the
+            // run cycle instead of just at whichever single instant an earlier one-shot screenshot landed on.
+            Tuning.Current.startingSquadSize = 4;
+            GameManager.I.BuildRun();
+            GameManager.I.StartRun();
+            Canvas.ForceUpdateCanvases();
+            yield return new WaitForSecondsRealtime(1f);
+            var camFollow = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
+            Vector3 savedOffset = default; float savedLookAhead = 0f;
+            if (camFollow != null)
+            {
+                savedOffset = camFollow.offset; savedLookAhead = camFollow.lookAhead;
+                camFollow.offset = new Vector3(0f, 4.2f, -5.4f);
+                camFollow.lookAhead = 1.4f;
+            }
+            yield return new WaitForSecondsRealtime(0.4f); // let the camera's own smoothing settle into the closer framing
+            for (int b = 0; b < 4; b++)
+            {
+                if (b > 0) yield return new WaitForSecondsRealtime(0.15f);
+                yield return Capture(outDir, "08-burst-" + b);
+            }
+            if (camFollow != null) { camFollow.offset = savedOffset; camFollow.lookAhead = savedLookAhead; }
+
             // Restart at a spread of squad sizes (well above the default level-1 squadCap at the big end)
             // so QA can compare Formation's dynamic spacing across the whole range in one pass: 3 and 10
             // should read loose/airy, 20 and 40 progressively tighter but still organic, never a grid.
-            // squadCapMult stays fixed at 4x (level 1's base squadCap=12, so cap=48) across all four shots
-            // - big enough to hold even the largest requested size - so only startingSquadSize changes.
-            Tuning.Current.squadCapMult = 4f;
             int[] squadShotSizes = { 3, 10, 20, 40 };
-            string[] squadShotNames = { "08-squad-03", "09-squad-10", "10-squad-20", "11-squad-40" };
+            string[] squadShotNames = { "09-squad-03", "10-squad-10", "11-squad-20", "12-squad-40" };
             for (int i = 0; i < squadShotSizes.Length; i++)
             {
                 Tuning.Current.startingSquadSize = squadShotSizes[i];
