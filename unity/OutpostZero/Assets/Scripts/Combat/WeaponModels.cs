@@ -59,12 +59,10 @@ namespace OutpostZero
             // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
-            // -90 Y points the mirrored +X barrel down the road. The imported mesh then sits
-            // muzzle-up in that frame; a parent-space -X pitch after the yaw brings the muzzle
-            // down to horizontal, with the magazine still down.
-            // -22 left the mesh ~25-30° muzzle-up in the 12b side view once the
-            // weapon root was world-locked; -50 closes that remaining carry.
-            anchor.transform.localRotation = Quaternion.Euler(-50f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
+            // -90 Y points the mirrored +X barrel down the road. With the weapon root
+            // world-locked to +Z, the mesh is already nearly level in that frame, so no
+            // extra pitch is applied (a negative X pitch now raises the muzzle).
+            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
