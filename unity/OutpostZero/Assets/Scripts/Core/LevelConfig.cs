@@ -51,11 +51,48 @@ namespace OutpostZero
     {
         public const int Designed = 10;
 
+        // QA-only: the same "-qaShots" flag QaShotRunner checks also makes every BuildRun() load a short,
+        // compressed layout instead of the real table, so an automated full-run (road, gates, zombies, boss,
+        // end screen) finishes in well under a minute instead of the shipped ~35s-per-level-times-the-boss-
+        // fight. Shipped builds never pass this flag, so real level lengths are never affected.
+        static bool? qaShortLevel;
+        static bool QaShortLevel
+        {
+            get
+            {
+                if (qaShortLevel == null)
+                {
+                    qaShortLevel = false;
+                    var args = System.Environment.GetCommandLineArgs();
+                    for (int i = 0; i < args.Length; i++) if (args[i] == "-qaShots") { qaShortLevel = true; break; }
+                }
+                return qaShortLevel.Value;
+            }
+        }
+
         public static LevelConfig Build(int levelNumber)
         {
+            if (QaShortLevel) return QaLevel();
             int n = Mathf.Max(1, levelNumber);
             return n <= Designed ? Table(n) : ScaleBeyond(Table(Designed), n - Designed);
         }
+
+        /// <summary>~24s of road at this speed (150 / 6.2), with 3 gates and 2 zombie groups before the
+        /// boss - enough for QaShotRunner to capture a gate pass and zombie combat without waiting through
+        /// a full designed level. Boss HP is cut hard (900 -> 60) so the fight itself also resolves quickly
+        /// under automated capture instead of running for a minute against whatever squad size QA happens
+        /// to have at that point.</summary>
+        static LevelConfig QaLevel() => new LevelConfig
+        {
+            runSpeed = 6.2f, bossDistance = 150f, bossHp = 60f, bossSpeed = 2.4f, bossStartGap = 14f, squadCap = 12,
+            gates = new List<GateDef> {
+                new GateDef(20, "+3", "+2"), new GateDef(60, "+2", "#-6"), new GateDef(100, "+4", "+2"),
+            },
+            zombies = new List<ZombieGroupDef> {
+                new ZombieGroupDef(40, 0, 3, 3, 1.6f), new ZombieGroupDef(90, -2, 3, 3, 1.6f),
+            },
+            crates = new List<CrateDef> { new CrateDef(70, 3.3f, WeaponType.Shotgun, 6) },
+        };
 
         static LevelConfig Table(int n)
         {

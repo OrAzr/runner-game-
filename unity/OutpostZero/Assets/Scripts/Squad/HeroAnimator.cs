@@ -28,7 +28,7 @@ namespace OutpostZero
         Vector3 hipsLockedXZ;
         float hipsSmoothedY;
 
-        Transform aimRoot, rightArm, rightForeArm, rightHand, leftArm, leftForeArm, leftHand, spine2;
+        Transform aimRoot, rightArm, rightForeArm, rightHand, leftArm, leftForeArm, leftHand, spine2, spine, spine1;
 
         // Aim-pose offsets are Euler angles applied on top of aimRoot.rotation (the character's own facing),
         // not the bones' own rig-local axes - those point wherever the FBX exporter happened to put them,
@@ -43,6 +43,11 @@ namespace OutpostZero
         static readonly Quaternion LeftForeArmAim = Quaternion.Euler(-18f, 0f, 0f);
         static readonly Quaternion LeftHandAim = Quaternion.identity;
         static readonly Quaternion Spine2Aim = Quaternion.Euler(4f, 0f, 0f);
+        // Rook's running clip carries a heavy forward stoop through the lower/mid spine (a Mixamo combat-run
+        // trait); Spine/Spine1 get the same partial-Slerp treatment as Spine2 but pulled all the way to
+        // aimRoot's own zero-pitch orientation (no small forward offset) and blended harder, since this is
+        // specifically correcting a hunch rather than just damping a swing. Rook-only - never wired up for
+        // soldiers, who don't have this complaint.
 
         /// <summary>Loads every clip under the given Resources path (e.g. "Models/Hero/rook" or
         /// "Models/Soldier/soldier") and wires one mixer input per clip. Returns false (nothing built) if the
@@ -98,12 +103,13 @@ namespace OutpostZero
         /// angles once one is bolted onto the hand bone. Any bone left null (e.g. a model missing Spine2) is
         /// just skipped. Legs/hips/torso keep playing the clip normally - only this chain is overridden.</summary>
         public void LockAimPose(Transform root, Transform rightArm, Transform rightForeArm, Transform rightHand,
-            Transform leftArm, Transform leftForeArm, Transform leftHand, Transform spine2)
+            Transform leftArm, Transform leftForeArm, Transform leftHand, Transform spine2,
+            Transform spine = null, Transform spine1 = null)
         {
             aimRoot = root;
             this.rightArm = rightArm; this.rightForeArm = rightForeArm; this.rightHand = rightHand;
             this.leftArm = leftArm; this.leftForeArm = leftForeArm; this.leftHand = leftHand;
-            this.spine2 = spine2;
+            this.spine2 = spine2; this.spine = spine; this.spine1 = spine1;
         }
 
         int FindIndex(string contains)
@@ -179,6 +185,11 @@ namespace OutpostZero
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);
+            // Straightens the lower/mid spine most of the way to upright (no forward offset, unlike Spine2's
+            // small +4 deg allowance) - this is the bone-level fix for Rook's hunch, since the whole-body
+            // forward pitch set in SquadController is a separate, much smaller "leaning into the run" tilt.
+            if (spine != null) spine.rotation = Quaternion.Slerp(spine.rotation, aimRoot.rotation, 0.6f);
+            if (spine1 != null) spine1.rotation = Quaternion.Slerp(spine1.rotation, aimRoot.rotation, 0.6f);
         }
 
         void OnDestroy()

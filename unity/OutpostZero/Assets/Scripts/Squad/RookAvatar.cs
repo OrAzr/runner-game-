@@ -113,7 +113,9 @@ namespace OutpostZero
                 avatar.Anim.LockAimPose(root,
                     FindDeep(root, "mixamorig:RightArm"), FindDeep(root, "mixamorig:RightForeArm"), handBone,
                     FindDeep(root, "mixamorig:LeftArm"), FindDeep(root, "mixamorig:LeftForeArm"), FindDeep(root, "mixamorig:LeftHand"),
-                    FindDeep(root, "mixamorig:Spine2"));
+                    FindDeep(root, "mixamorig:Spine2"),
+                    // Rook-only: straightens the running clip's forward stoop (SoldierAvatar doesn't pass these).
+                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"));
             }
 
             if (silhouette) TintDark(root);

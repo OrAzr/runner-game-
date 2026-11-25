@@ -77,12 +77,41 @@ namespace OutpostZero
                 yield break;
             }
 
-            GameManager.I.StartRun();
+            // Full end-to-end pass: road, gates, zombies, boss fight, end screen, all in one unbroken run.
+            // Levels.Build returns the short QA layout automatically while -qaShots is set (see
+            // LevelConfig.cs), so this reaches the boss in ~25s instead of the shipped level's ~35s+.
+            var gm = GameManager.I;
+            gm.StartRun();
             Canvas.ForceUpdateCanvases();
-            yield return new WaitForSecondsRealtime(2.5f);
-            yield return Capture(outDir, "06-gameplay-2s");
-            yield return new WaitForSecondsRealtime(3f);
-            yield return Capture(outDir, "07-gameplay-5s");
+
+            yield return new WaitForSecondsRealtime(1f);
+            yield return Capture(outDir, "06-early-road");
+
+            float gateZ = gm.level.gates.Count > 0 ? gm.level.gates[0].distance : 20f;
+            yield return WaitUntil(() => gm.State != GameState.Running || gm.Distance >= gateZ + 2f, 15f);
+            yield return Capture(outDir, "07-gate-pass");
+
+            float zombieZ = gm.level.zombies.Count > 1 ? gm.level.zombies[1].distance : gateZ;
+            yield return WaitUntil(() => gm.State != GameState.Running || gm.Distance >= zombieZ + 1f, 15f);
+            yield return Capture(outDir, "08-zombie-combat");
+
+            yield return WaitUntil(() => gm.State == GameState.BossFight, 15f);
+            yield return new WaitForSecondsRealtime(0.5f); // let the boss roar/entrance settle before capturing
+            yield return Capture(outDir, "09-boss-arrival");
+
+            // 3-4 frames ~0.3s apart during the fight itself, to check soldiers/Rook keep the aim-locked
+            // rifle pose (and keep firing at the boss) instead of the idle/look-around clip this covers.
+            for (int b = 0; b < 4; b++)
+            {
+                if (b > 0) yield return new WaitForSecondsRealtime(0.3f);
+                yield return Capture(outDir, "10-boss-fight-" + b);
+            }
+
+            // Boss HP is tuned low for the QA level, but give a generous margin in case the squad is still
+            // small at this point in the run.
+            yield return WaitUntil(() => !gm.IsPlaying, 40f);
+            yield return new WaitForSecondsRealtime(0.8f); // GameUI.ShowEnd reveals the panel after its own 0.7s delay
+            yield return Capture(outDir, "11-end-screen");
 
             // squadCapMult stays fixed at 4x (level 1's base squadCap=12, so cap=48) for the rest of this
             // run - big enough to hold even the largest squad-size shot below - so only startingSquadSize
@@ -93,8 +122,8 @@ namespace OutpostZero
             // so QA can check the rifle pose (HeroAnimator.LockAimPose) stays pointed forward throughout the
             // run cycle instead of just at whichever single instant an earlier one-shot screenshot landed on.
             Tuning.Current.startingSquadSize = 4;
-            GameManager.I.BuildRun();
-            GameManager.I.StartRun();
+            gm.BuildRun();
+            gm.StartRun();
             Canvas.ForceUpdateCanvases();
             yield return new WaitForSecondsRealtime(1f);
             var camFollow = Camera.main != null ? Camera.main.GetComponent<CameraFollow>() : null;
@@ -109,7 +138,7 @@ namespace OutpostZero
             for (int b = 0; b < 4; b++)
             {
                 if (b > 0) yield return new WaitForSecondsRealtime(0.15f);
-                yield return Capture(outDir, "08-burst-" + b);
+                yield return Capture(outDir, "12-burst-" + b);
             }
             if (camFollow != null) { camFollow.offset = savedOffset; camFollow.lookAhead = savedLookAhead; }
 
@@ -117,12 +146,12 @@ namespace OutpostZero
             // so QA can compare Formation's dynamic spacing across the whole range in one pass: 3 and 10
             // should read loose/airy, 20 and 40 progressively tighter but still organic, never a grid.
             int[] squadShotSizes = { 3, 10, 20, 40 };
-            string[] squadShotNames = { "09-squad-03", "10-squad-10", "11-squad-20", "12-squad-40" };
+            string[] squadShotNames = { "13-squad-03", "14-squad-10", "15-squad-20", "16-squad-40" };
             for (int i = 0; i < squadShotSizes.Length; i++)
             {
                 Tuning.Current.startingSquadSize = squadShotSizes[i];
-                GameManager.I.BuildRun();
-                GameManager.I.StartRun();
+                gm.BuildRun();
+                gm.StartRun();
                 Canvas.ForceUpdateCanvases();
                 yield return new WaitForSecondsRealtime(2f);
                 yield return Capture(outDir, squadShotNames[i]);
@@ -182,6 +211,17 @@ namespace OutpostZero
         static IEnumerator WaitFrames(int n)
         {
             for (int i = 0; i < n; i++) yield return null;
+        }
+
+        /// <summary>Polls a condition every frame instead of guessing a fixed delay, so the capture tracks
+        /// whatever the current level/run actually does (distance to a gate, state change, run ending)
+        /// rather than a number tuned against one specific level layout. Gives up silently at the timeout -
+        /// callers still capture whatever is on screen so a stall shows up as a wrong-looking screenshot
+        /// rather than the whole QA pass hanging.</summary>
+        static IEnumerator WaitUntil(Func<bool> condition, float timeoutSeconds)
+        {
+            float deadline = Time.unscaledTime + timeoutSeconds;
+            while (!condition() && Time.unscaledTime < deadline) yield return null;
         }
 
         static void Fail(string dir, string message)
