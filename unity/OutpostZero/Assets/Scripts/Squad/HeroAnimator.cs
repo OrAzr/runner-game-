@@ -59,7 +59,15 @@ namespace OutpostZero
             if (clipList == null || clipList.Length == 0) return false;
 
             graph = PlayableGraph.Create("RookAnimator");
-            graph.SetTimeUpdateMode(DirectorUpdateMode.GameTime);
+            // Manual, not GameTime: the graph is evaluated explicitly once per LateUpdate (right before
+            // ApplyAimLock, see there), not by Unity's own automatic per-frame scheduling. A GameTime graph
+            // picks up its first automatic evaluation on a schedule that doesn't line up with a freshly
+            // built avatar's own Update/LateUpdate calls (both deferred to the frame after AddComponent),
+            // so for a frame or two after a restart it could land after LockAimPose's eager correction and
+            // before this component's own first LateUpdate, clobbering the hand/arm bones with the raw clip
+            // pose. Owning the evaluate call ourselves means nothing ever touches the rig after our own
+            // correction runs.
+            graph.SetTimeUpdateMode(DirectorUpdateMode.Manual);
             var output = AnimationPlayableOutput.Create(graph, "RookOutput", animator);
             mixer = AnimationMixerPlayable.Create(graph, clipList.Length);
             output.SetSourcePlayable(mixer);
@@ -83,15 +91,6 @@ namespace OutpostZero
             activeIndex = startIdx;
             weight[startIdx] = 1f;
             mixer.SetInputWeight(startIdx, 1f);
-            // Forces the graph to sample and write this starting pose into the Animator's bones right now,
-            // synchronously, instead of waiting for Unity's own once-per-frame native animation evaluation
-            // (which runs between Update and LateUpdate - see LateUpdate's own comment). A graph that was
-            // JUST created doesn't line up with that per-frame schedule the same way an already-running one
-            // does, so its first native evaluation can land late enough to fire AFTER LockAimPose's eager
-            // ApplyAimLock call below (and after this frame's own LateUpdate, which hasn't been reached for
-            // a component built mid-frame), clobbering the hand/arm bones with the raw clip pose for a
-            // visible frame before the next LateUpdate corrects it again. Evaluating here consumes that
-            // first-sample-ever so there's nothing deferred left to land awkwardly later.
             graph.Evaluate(0f);
             return true;
         }
@@ -190,12 +189,15 @@ namespace OutpostZero
             if (DebugTag) Debug.Log("HA_DBG U-end id=" + DebugId + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
         }
 
-        /// <summary>Runs after the PlayableGraph has evaluated this frame's pose (Unity updates bound
-        /// AnimationPlayableOutputs between Update and LateUpdate), so this is the first point a correction
-        /// to the posed Hips bone sticks instead of being immediately overwritten.</summary>
+        /// <summary>Evaluates the graph itself (Manual time update mode - see Build), then applies the pose
+        /// correction, both here and nowhere else: owning the evaluate call means nothing in Unity's own
+        /// automatic scheduling can sample a pose and write to the rig after this point, so the correction
+        /// below is guaranteed to be the last thing touching the bones every single frame, including the
+        /// first one after a freshly built avatar's Update/LateUpdate start running.</summary>
         void LateUpdate()
         {
             if (DebugTag) Debug.Log("HA_DBG LU-start id=" + DebugId + " frame=" + Time.frameCount + " fwd=" + (rightHand != null ? rightHand.forward.ToString() : "null"));
+            if (graph.IsValid()) graph.Evaluate(Time.deltaTime);
             if (hips != null)
             {
                 var p = hips.localPosition;
