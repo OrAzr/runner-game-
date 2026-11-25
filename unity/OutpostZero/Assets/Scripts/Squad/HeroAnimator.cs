@@ -28,13 +28,13 @@ namespace OutpostZero
         Vector3 hipsLockedXZ;
         float hipsSmoothedY;
 
-        /// <summary>Loads every clip under Resources/Models/Hero/rook and wires one mixer input per clip.
-        /// Returns false (nothing built) if the resource folder has no clips, so the caller can skip this
-        /// component entirely.</summary>
-        public bool Build(Animator animator)
+        /// <summary>Loads every clip under the given Resources path (e.g. "Models/Hero/rook" or
+        /// "Models/Soldier/soldier") and wires one mixer input per clip. Returns false (nothing built) if the
+        /// resource folder has no clips, so the caller can skip this component entirely.</summary>
+        public bool Build(Animator animator, string resourcePath)
         {
             if (animator == null) return false;
-            clipList = Resources.LoadAll<AnimationClip>("Models/Hero/rook");
+            clipList = Resources.LoadAll<AnimationClip>(resourcePath);
             if (clipList == null || clipList.Length == 0) return false;
 
             graph = PlayableGraph.Create("RookAnimator");
@@ -84,14 +84,20 @@ namespace OutpostZero
             return -1;
         }
 
+        /// <summary>Per-instance playback rate for the active clip (1 = authored speed). Soldier crowds
+        /// randomize this slightly per instance so 48-70 of them don't all stride in lockstep.</summary>
+        public float Speed = 1f;
+
         /// <summary>Crossfades to the named clip (substring match, e.g. "Idle", "Run_and_Shoot") if it isn't
-        /// already the active one. Ignored while a TriggerOnce one-shot is still playing.</summary>
-        public void Play(string contains, bool loop)
+        /// already the active one. Ignored while a TriggerOnce one-shot is still playing. startTime seeds the
+        /// clip's local time the first time it becomes active (mod'd against clip length in Update), letting
+        /// a crowd of otherwise-identical soldiers start their run cycles at different phases.</summary>
+        public void Play(string contains, bool loop, float startTime = 0f)
         {
             if (!graph.IsValid() || Time.time < lockUntil) return;
             int idx = FindIndex(contains);
             if (idx < 0 || idx == activeIndex) return;
-            activeIndex = idx; loopFlag[idx] = loop; localTime[idx] = 0f;
+            activeIndex = idx; loopFlag[idx] = loop; localTime[idx] = startTime;
         }
 
         /// <summary>Plays the named clip once, locking out Play() until it finishes.</summary>
@@ -114,7 +120,7 @@ namespace OutpostZero
                 weight[i] = Mathf.MoveTowards(weight[i], isActive ? 1f : 0f, dt / BlendSeconds);
                 mixer.SetInputWeight(i, weight[i]);
                 if (weight[i] <= 0f && !isActive) continue;
-                localTime[i] += dt;
+                localTime[i] += dt * Speed;
                 float len = Mathf.Max(0.0001f, clipList[i].length);
                 float t = loopFlag[i] ? localTime[i] % len : Mathf.Min(localTime[i], len);
                 clipPlayables[i].SetTime(t);

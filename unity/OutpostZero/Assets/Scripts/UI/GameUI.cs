@@ -56,12 +56,14 @@ namespace OutpostZero
             return b;
         }
         /// <summary>Like Btn() but anchored at an arbitrary point (e.g. (1, 0.5) for a right-edge-relative
-        /// button) instead of always the parent's center - used by rows whose parent width isn't fixed.</summary>
-        Button EdgeBtn(string n, Transform p, string label, Color c, Vector2 anchor, Vector2 center, Vector2 size, UnityEngine.Events.UnityAction onClick)
+        /// button) instead of always the parent's center - used by rows whose parent width isn't fixed.
+        /// labelColor defaults to white rather than Btn()'s dark label: EdgeBtn's only callers are the tuning
+        /// row -/+ buttons, which sit on Teal/TealDark backgrounds where a dark glyph is nearly invisible.</summary>
+        Button EdgeBtn(string n, Transform p, string label, Color c, Vector2 anchor, Vector2 center, Vector2 size, UnityEngine.Events.UnityAction onClick, Color? labelColor = null)
         {
             var img = Img(n, p, c, anchor, anchor, center - size / 2, center + size / 2);
             var b = img.gameObject.AddComponent<Button>(); b.onClick.AddListener(onClick);
-            Txt("Label", img.transform, label, 40, new Color(0.1f, 0.1f, 0.1f), TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
+            Txt("Label", img.transform, label, 40, labelColor ?? Color.white, TextAnchor.MiddleCenter, Vector2.zero, Vector2.one, Vector2.zero, Vector2.zero);
             return b;
         }
 
