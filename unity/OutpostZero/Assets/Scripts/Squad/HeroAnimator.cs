@@ -185,19 +185,12 @@ namespace OutpostZero
             // parent has no cosmetic rotation of its own (only position moves), so this keeps the rifle
             // pinned to true forward while the body underneath still turns/leans/flinches freely.
             var armBasis = aimRoot.parent != null ? aimRoot.parent.rotation : Quaternion.identity;
-            if (rightArm != null) rightArm.rotation = armBasis * RightArmAim;
-            if (rightForeArm != null) rightForeArm.rotation = armBasis * RightForeArmAim;
-            if (rightHand != null) rightHand.rotation = armBasis * RightHandAim;
-            if (leftArm != null) leftArm.rotation = armBasis * LeftArmAim;
-            if (leftForeArm != null) leftForeArm.rotation = armBasis * LeftForeArmAim;
-            if (leftHand != null) leftHand.rotation = armBasis * LeftHandAim;
-            if (spine != null && Time.frameCount % 37 == 0)
-                Debug.Log("QA_DEBUG_AIM armBasisEuler=" + armBasis.eulerAngles
-                    + " aimRootParentName=" + (aimRoot.parent != null ? aimRoot.parent.name : "null")
-                    + " rightHandRotEuler=" + (rightHand != null ? rightHand.rotation.eulerAngles.ToString() : "n/a")
-                    + " rightHandLossyScale=" + (rightHand != null ? rightHand.lossyScale.ToString() : "n/a")
-                    + " aimRootLossyScale=" + aimRoot.lossyScale
-                    + " muzzleFwd=" + (rightHand != null ? rightHand.forward.ToString() : "n/a"));
+            // Spine2/Spine/Spine1 are ANCESTORS of the arm chain in the Mixamo rig (Hips->Spine->Spine1->
+            // Spine2->Shoulder->Arm->ForeArm->Hand), so they must be straightened before the arm/hand
+            // bones below are locked - not after. Each arm/hand assignment below sets an absolute world
+            // rotation, so as long as nothing runs after it touches an ancestor, the muzzle ends up exactly
+            // on armBasis every frame; doing the spine Slerps afterward re-introduced drift into the whole
+            // arm subtree underneath them, which is what sent the muzzle up over the shoulder.
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);
@@ -206,6 +199,13 @@ namespace OutpostZero
             // forward pitch set in SquadController is a separate, much smaller "leaning into the run" tilt.
             if (spine != null) spine.rotation = Quaternion.Slerp(spine.rotation, aimRoot.rotation, 0.6f);
             if (spine1 != null) spine1.rotation = Quaternion.Slerp(spine1.rotation, aimRoot.rotation, 0.6f);
+
+            if (rightArm != null) rightArm.rotation = armBasis * RightArmAim;
+            if (rightForeArm != null) rightForeArm.rotation = armBasis * RightForeArmAim;
+            if (rightHand != null) rightHand.rotation = armBasis * RightHandAim;
+            if (leftArm != null) leftArm.rotation = armBasis * LeftArmAim;
+            if (leftForeArm != null) leftForeArm.rotation = armBasis * LeftForeArmAim;
+            if (leftHand != null) leftHand.rotation = armBasis * LeftHandAim;
         }
 
         void OnDestroy()
