@@ -25,7 +25,7 @@ namespace OutpostZero
 
         public void ShowWeapon(WeaponType type) { if (weapon != null) weapon.Show(type); }
 
-        public void Tick(Vector3 slot, bool running, float dt, float lean, float hw)
+        public void Tick(Vector3 slot, bool moving, float dt, float lean, float hw)
         {
             // SmoothDamp (critically damped, frame-rate independent) instead of a per-soldier-k Lerp: the old
             // Lerp plus an independent per-soldier sine bob/tilt made the whole trailing group read as a
@@ -44,12 +44,12 @@ namespace OutpostZero
             // frame's pose) doubled up with the clip's own motion; the primitive fallback has no locomotion
             // animation of its own, so it still gets the bob.
             bool rigged = avatar != null && avatar.IsRigged;
-            float bob = running && !rigged ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
+            float bob = moving && !rigged ? Mathf.Abs(Mathf.Sin(Time.time * 10f + bobSeed * 0.3f)) * 0.06f : 0f;
             p.y = bob;
             transform.position = p;
             transform.rotation = Quaternion.Euler(bob * 60f, 0f, lean * 0.65f);
             if (weapon != null) weapon.Tick(dt);
-            if (avatar != null) avatar.Tick(running);
+            if (avatar != null) avatar.Tick(moving);
         }
 
         /// <summary>Short, snappy knockback-and-shrink instead of vanishing instantly or ragdolling away

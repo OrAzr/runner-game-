@@ -16,6 +16,7 @@ namespace OutpostZero
         }
 
         static Material zombieMaterial, bossMaterial;
+        static bool loggedZombieScale, loggedBossScale;
 
         /// <summary>Instantiates the model at resourcePath under parent, scaled so its own bounds.size.y
         /// equals targetHeight, with a shared crowd-safe material and a fresh EnemyAnimator wired to its
@@ -42,6 +43,11 @@ namespace OutpostZero
             var bounds = Prims.CombinedBounds(root);
             if (bounds == null) { Object.Destroy(go); return null; }
             root.localScale = Vector3.one * (targetHeight / Mathf.Max(0.01f, bounds.Value.size.y));
+
+            // Logged once per model (not once per crowd member) so the tester can confirm the rendered
+            // height from player.log without the crowd spamming it every spawn.
+            if (isBoss) { if (!loggedBossScale) { loggedBossScale = true; Debug.Log("[SCALE] boss height=" + (bounds.Value.size.y * root.localScale.y)); } }
+            else { if (!loggedZombieScale) { loggedZombieScale = true; Debug.Log("[SCALE] zombie height=" + (bounds.Value.size.y * root.localScale.y)); } }
 
             skin.sharedMaterial = isBoss ? BossMaterial() : ZombieMaterial();
             // Mobile crowd budget: no shadows, cheapest skin quality, never update a hidden skin's mesh.

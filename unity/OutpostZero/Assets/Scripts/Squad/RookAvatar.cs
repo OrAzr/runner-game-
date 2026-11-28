@@ -81,6 +81,7 @@ namespace OutpostZero
             var bounds = Prims.CombinedBounds(root);
             if (bounds == null) { Object.Destroy(go); return null; }
             root.localScale = Vector3.one * (RiggedTargetHeight / Mathf.Max(0.01f, bounds.Value.size.y));
+            Debug.Log("[SCALE] rook height=" + (bounds.Value.size.y * root.localScale.y));
 
             var mat = RiggedMaterial();
             var renderers = go.GetComponentsInChildren<Renderer>();
@@ -265,7 +266,7 @@ namespace OutpostZero
             return avatar;
         }
 
-        public void Tick(float dt, bool running)
+        public void Tick(float dt, bool moving)
         {
             if (flinchT > 0f)
             {
@@ -275,21 +276,24 @@ namespace OutpostZero
             }
             else FlinchPitch = 0f;
 
-            float sway = Mathf.Sin(Time.time * (running ? 11f : 1.7f)) * (running ? 16f : 4f);
+            float sway = Mathf.Sin(Time.time * (moving ? 11f : 1.7f)) * (moving ? 16f : 4f);
             if (ArmL != null) ArmL.localRotation = Quaternion.Euler(sway, 0f, 8f);
             if (ArmR != null) ArmR.localRotation = Quaternion.Euler(-sway * 0.35f, 0f, -8f);
             if (Chest != null)
             {
-                float breath = 1f + Mathf.Sin(Time.time * 1.6f) * (running ? 0.03f : 0.025f);
+                float breath = 1f + Mathf.Sin(Time.time * 1.6f) * (moving ? 0.03f : 0.025f);
                 Chest.localScale = new Vector3(ChestBase.x, ChestBase.y * breath, ChestBase.z);
             }
             if (Cape != null)
-                Cape.localRotation = Quaternion.Euler(running ? Mathf.Sin(Time.time * 9f) * 16f : 0f, 0f, 0f);
+                Cape.localRotation = Quaternion.Euler(moving ? Mathf.Sin(Time.time * 9f) * 16f : 0f, 0f, 0f);
             if (Mount != null) Mount.Tick(dt);
             else if (Weapon != null) Weapon.Tick(dt);
-            // The squad is effectively always firing while running (AutoShooter has no "holding fire" state),
+            // The squad is effectively always firing while moving (AutoShooter has no "holding fire" state),
             // so Run_and_Shoot covers both; Running is loaded and available for a future non-firing state.
-            if (Anim != null) Anim.Play(running ? "Run_and_Shoot" : "Idle", true);
+            // Idle plays whenever the squad isn't actually advancing (parked at the boss, menu, defeat) -
+            // LockAimPose/ArmIk aren't keyed to the clip name, so the rifle still stays held and aimed
+            // forward through Idle exactly as it does through Run_and_Shoot.
+            if (Anim != null) Anim.Play(moving ? "Run_and_Shoot" : "Idle", true);
         }
 
         /// <summary>Short flinch for a squad-loss hit: keeps running and shooting, just a quick recoil.

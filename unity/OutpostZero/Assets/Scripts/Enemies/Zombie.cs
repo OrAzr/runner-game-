@@ -15,10 +15,22 @@ namespace OutpostZero
         static float groanCooldown;
         bool waveScaled;
 
-        /// <summary>Reference height (metres) a zombie at scale 1 should read as - matches the primitive
-        /// body's own built height so the rigged swap doesn't change gameplay framing. Boss passes its own
-        /// scale (3.2) through the same formula to land on its existing ~5.2m size.</summary>
-        const float BaseHeight = 1.6f;
+        /// <summary>Historical reference height (metres) the old box placeholder/hitRadius formula was tuned
+        /// against - the rigged body's actual height now comes from TargetHeight/BossTargetHeight below, but
+        /// hitRadius is still expressed as a scale factor off this baseline so it grows in proportion.</summary>
+        protected const float BaseHeight = 1.6f;
+
+        /// <summary>Target rigged heights (metres), derived from SoldierAvatar.TargetHeight so they can't
+        /// drift apart from the squad's own scale: zombies read a bit taller than a soldier, the boss about
+        /// 3x a soldier.</summary>
+        public const float ZombieHeightRatioToSoldier = 1.07f;
+        public const float BossHeightRatioToSoldier = 3.0f;
+        public const float TargetHeight = SoldierAvatar.TargetHeight * ZombieHeightRatioToSoldier; // ~2.44m
+        public const float BossTargetHeight = SoldierAvatar.TargetHeight * BossHeightRatioToSoldier; // ~6.84m
+
+        /// <summary>Hit radius never grows past this even if TargetHeight grows further, so a taller zombie
+        /// doesn't start eating damage/contact rolls far beyond its actual silhouette.</summary>
+        const float MaxHitRadius = 0.65f;
 
         protected virtual string ResourcePath => "Models/Zombie/zombie";
         protected virtual bool IsBossModel => false;
@@ -32,14 +44,16 @@ namespace OutpostZero
         protected void Build(float scale)
         {
             baseScale = Vector3.one * scale;
-            hitRadius = 0.45f * scale;
+            // Scales in proportion to how much taller the rigged body is than the old BaseHeight baseline,
+            // capped so a taller zombie doesn't out-reach its actual silhouette by much.
+            hitRadius = Mathf.Min(MaxHitRadius, 0.45f * (TargetHeight / BaseHeight));
             phase = Random.value * 6f;
-            if (!BuildRigged(scale)) BuildPrimitive(scale);
+            if (!BuildRigged()) BuildPrimitive(scale);
         }
 
-        bool BuildRigged(float scale)
+        bool BuildRigged()
         {
-            var rigged = EnemyAvatar.Build(transform, ResourcePath, BaseHeight * scale, IsBossModel);
+            var rigged = EnemyAvatar.Build(transform, ResourcePath, IsBossModel ? BossTargetHeight : TargetHeight, IsBossModel);
             if (rigged == null) return false;
             skin = new Renderer[] { rigged.Skin };
             anim = rigged.Anim;
