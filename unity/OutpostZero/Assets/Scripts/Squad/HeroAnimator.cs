@@ -29,6 +29,7 @@ namespace OutpostZero
         float hipsSmoothedY;
 
         Transform aimRoot, rightArm, rightForeArm, rightHand, leftArm, leftForeArm, leftHand, spine2, spine, spine1;
+        bool lockArms = true;
 
         // Aim-pose offsets are Euler angles applied on top of aimRoot.rotation (the character's own facing),
         // not the bones' own rig-local axes - those point wherever the FBX exporter happened to put them,
@@ -101,15 +102,18 @@ namespace OutpostZero
         /// letting the Running/Run_and_Shoot clip's own arm-swing drive it. Those clips were authored
         /// empty-handed, so the swing that reads fine without a prop sends an attached rifle through random
         /// angles once one is bolted onto the hand bone. Any bone left null (e.g. a model missing Spine2) is
-        /// just skipped. Legs/hips/torso keep playing the clip normally - only this chain is overridden.</summary>
+        /// just skipped. Legs/hips/torso keep playing the clip normally - only this chain is overridden.
+        /// lockArms is false for Rook, whose arms are instead driven by ArmIk so the rifle tracks the
+        /// weapon's actual grip points; the hips/spine corrections below still apply to him either way.</summary>
         public void LockAimPose(Transform root, Transform rightArm, Transform rightForeArm, Transform rightHand,
             Transform leftArm, Transform leftForeArm, Transform leftHand, Transform spine2,
-            Transform spine = null, Transform spine1 = null)
+            Transform spine = null, Transform spine1 = null, bool lockArms = true)
         {
             aimRoot = root;
             this.rightArm = rightArm; this.rightForeArm = rightForeArm; this.rightHand = rightHand;
             this.leftArm = leftArm; this.leftForeArm = leftForeArm; this.leftHand = leftHand;
             this.spine2 = spine2; this.spine = spine; this.spine1 = spine1;
+            this.lockArms = lockArms;
         }
 
         int FindIndex(string contains)
@@ -179,13 +183,16 @@ namespace OutpostZero
             // Hands and forearms aim world-forward and level, so the rifle stays horizontal down the
             // road even when Rook's body is yawed ~20° toward the camera or pitched into the run.
             // Shoulders still follow the body so the arms reach naturally from the yawed torso.
-            var levelForward = Quaternion.LookRotation(Vector3.forward, Vector3.up);
-            if (rightArm != null) rightArm.rotation = aimRoot.rotation * RightArmAim;
-            if (rightForeArm != null) rightForeArm.rotation = levelForward * RightForeArmAim;
-            if (rightHand != null) rightHand.rotation = levelForward * RightHandAim;
-            if (leftArm != null) leftArm.rotation = aimRoot.rotation * LeftArmAim;
-            if (leftForeArm != null) leftForeArm.rotation = levelForward * LeftForeArmAim;
-            if (leftHand != null) leftHand.rotation = levelForward * LeftHandAim;
+            if (lockArms)
+            {
+                var levelForward = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+                if (rightArm != null) rightArm.rotation = aimRoot.rotation * RightArmAim;
+                if (rightForeArm != null) rightForeArm.rotation = levelForward * RightForeArmAim;
+                if (rightHand != null) rightHand.rotation = levelForward * RightHandAim;
+                if (leftArm != null) leftArm.rotation = aimRoot.rotation * LeftArmAim;
+                if (leftForeArm != null) leftForeArm.rotation = levelForward * LeftForeArmAim;
+                if (leftHand != null) leftHand.rotation = levelForward * LeftHandAim;
+            }
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);

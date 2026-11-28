@@ -16,6 +16,7 @@ namespace OutpostZero
         /// Weapon instead, since it has no bones for WeaponMount to anchor against.</summary>
         public WeaponMount Mount;
         public HeroAnimator Anim;
+        public ArmIk Ik;
 
         // Procedural flinch for squad-loss hits: a quick backward torso tilt layered on top of the normal
         // run/shoot pose instead of the old TriggerOnce("Gunshot") full-body reaction clip, which locked out
@@ -85,11 +86,16 @@ namespace OutpostZero
             var renderers = go.GetComponentsInChildren<Renderer>();
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
 
-            // LockAimPose still needs the hand bone to force it back to aimRoot's +Z-forward convention
-            // every frame (see HeroAnimator.LockAimPose) - the weapon itself no longer rides it. It is
-            // anchored to the chest by WeaponMount instead, so arm-swing animation can't drag the gun around.
+            // LockAimPose no longer overrides these for Rook (lockArms: false below) - ArmIk drives them
+            // onto the weapon's actual grip points instead - but they're still looked up here since ArmIk
+            // needs the same bones, and LockAimPose still needs the hand bone reference for its signature.
+            var rightUpper = FindDeep(root, "mixamorig:RightArm");
+            var rightFore = FindDeep(root, "mixamorig:RightForeArm");
             var handBone = FindDeep(root, "mixamorig:RightHand");
             if (handBone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:RightHand bone; LockAimPose will skip the right arm.");
+            var leftUpper = FindDeep(root, "mixamorig:LeftArm");
+            var leftFore = FindDeep(root, "mixamorig:LeftForeArm");
+            var leftHand = FindDeep(root, "mixamorig:LeftHand");
             var spine2Bone = FindDeep(root, "mixamorig:Spine2");
             if (spine2Bone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:Spine2 bone; the weapon mount will anchor to the model root instead of the chest.");
 
@@ -103,6 +109,9 @@ namespace OutpostZero
 
             var avatar = new RookAvatar { Root = root, Height = RiggedTargetHeight };
             avatar.Mount = WeaponMount.Create(root, root, spine2Bone, RiggedTargetHeight);
+            avatar.Ik = ArmIk.Create(go, avatar.Mount, root,
+                rightUpper, rightFore, handBone,
+                leftUpper, leftFore, leftHand);
             var anim = go.AddComponent<HeroAnimator>();
             avatar.Anim = anim.Build(animator, "Models/Hero/rook") ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
@@ -110,11 +119,12 @@ namespace OutpostZero
             {
                 avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
                 avatar.Anim.LockAimPose(root,
-                    FindDeep(root, "mixamorig:RightArm"), FindDeep(root, "mixamorig:RightForeArm"), handBone,
-                    FindDeep(root, "mixamorig:LeftArm"), FindDeep(root, "mixamorig:LeftForeArm"), FindDeep(root, "mixamorig:LeftHand"),
+                    rightUpper, rightFore, handBone,
+                    leftUpper, leftFore, leftHand,
                     spine2Bone,
                     // Rook-only: straightens the running clip's forward stoop (SoldierAvatar doesn't pass these).
-                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"));
+                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"),
+                    lockArms: false);
             }
 
             if (silhouette) TintDark(root);
@@ -291,8 +301,14 @@ namespace OutpostZero
             flinchT = FlinchDuration;
         }
 
-        /// <summary>One-shot death clip. No-op on the primitive body (Anim is null) or if the clip is missing.</summary>
-        public void PlayDeath() { Anim?.TriggerOnce("Dead"); }
+        /// <summary>One-shot death clip. No-op on the primitive body (Anim is null) or if the clip is missing.
+        /// Also eases the arm IK's weight to 0, so the hands let go of the grips instead of staying rifle-
+        /// locked through the death pose.</summary>
+        public void PlayDeath()
+        {
+            Anim?.TriggerOnce("Dead");
+            Ik?.ReleaseArms();
+        }
 
         static GameObject Box(Transform parent, Vector3 pos, Vector3 scale, Material mat)
         {
