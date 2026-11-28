@@ -13,8 +13,9 @@ namespace OutpostZero
         /// rigged Rook instance can be retuned from one place. Measured on the 1.7m model with a Blender IK
         /// test (plan-notes/ik_proto2.py) that proved this is the one spot both of Rook's hands can reach
         /// the weapon's Grip_R/Grip_L points. Y sits the rifle at mid-chest, about 17cm below Spine2, so it
-        /// reads below the shoulder pad instead of behind it in side view.</summary>
-        public static readonly Vector3 MountOffset = new Vector3(0.03f, -0.10f, 0.118f);
+        /// reads below the shoulder pad instead of behind it in side view. X/Z pushed further right/forward
+        /// so the receiver and magazine clear the shoulder pad in side view instead of being covered by it.</summary>
+        public static readonly Vector3 MountOffset = new Vector3(0.05f, -0.10f, 0.153f);
 
         public Transform GripR { get; private set; }
         public Transform GripL { get; private set; }
