@@ -77,7 +77,7 @@ namespace OutpostZero
 
         GameObject BuildRifle(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
+            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _, hero);
             if (model != null) return model;
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
@@ -92,7 +92,7 @@ namespace OutpostZero
 
         GameObject BuildShotgun(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
+            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _, hero);
             if (model != null) return model;
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
@@ -107,7 +107,7 @@ namespace OutpostZero
 
         GameObject BuildFlamethrower(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
+            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip, hero);
             if (model != null)
             {
                 var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));

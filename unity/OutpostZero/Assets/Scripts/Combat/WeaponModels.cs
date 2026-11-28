@@ -15,7 +15,7 @@ namespace OutpostZero
         /// its texture applied via a freshly made Standard material (never the FBX-imported one). tipLocal comes
         /// back as the muzzle-end position in parent's local space, for placing extras like a nozzle glow.
         /// Returns null (and destroys anything it created) if the model or its renderers are missing.</summary>
-        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal)
+        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal, bool heroKit = false)
         {
             tipLocal = new Vector3(0f, 0f, targetLength * 0.5f);
             var prefab = Resources.Load<GameObject>(ResourceRoot + resourceName);
@@ -65,10 +65,16 @@ namespace OutpostZero
             // about the import convention. +90 about X (applied first, in the mesh's own unrotated frame)
             // swings the muzzle from hanging down to forward and level; -90 about Y (applied after, in the
             // hand's frame) then turns that barrel in from off the character's side to match the character's
-            // own forward, magazine down and scope up at every yaw. Same value for every weapon type and for
-            // both Rook and the soldiers - HeroAnimator's arm lock keeps the hand in the same
-            // character-relative frame for everyone, so one combined rotation fits all of them.
-            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f) * Quaternion.Euler(90f, 0f, 0f);
+            // own forward, magazine down and scope up at every yaw. This is the correct mount for the
+            // soldiers in every tested view - leave it alone for them.
+            var mount = Quaternion.Euler(0f, -90f, 0f) * Quaternion.Euler(90f, 0f, 0f);
+            // Rook's hero-kit rifle reads backward (muzzle behind him, stock ahead) under that same mount -
+            // same resource, same socket convention, but his rig still ends up 180 degrees off from the
+            // soldiers' once everything else lines up, so the hero kit alone gets an extra yaw to turn the
+            // barrel back around to his facing side. A pure yaw only swaps forward/backward: it leaves the
+            // already-correct level pitch and magazine-down roll untouched.
+            if (heroKit) mount = Quaternion.Euler(0f, 180f, 0f) * mount;
+            anchor.transform.localRotation = mount;
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
