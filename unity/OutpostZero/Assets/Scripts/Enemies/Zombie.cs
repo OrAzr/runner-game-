@@ -8,8 +8,20 @@ namespace OutpostZero
     {
         public float moveSpeed = 1.6f, aggroRange = 30f;
         protected Transform armL, armR; protected Renderer[] skin; protected float phase; protected Vector3 baseScale = Vector3.one;
+        /// <summary>Non-null only for the rigged Meshy body (has its own Walking/Running/Punch_Combo/Dead
+        /// clips); null for the primitive box fallback, which still wants the procedural arm swing/bob.</summary>
+        protected EnemyAnimator anim;
+        float animStartTime;
         static float groanCooldown;
         bool waveScaled;
+
+        /// <summary>Reference height (metres) a zombie at scale 1 should read as - matches the primitive
+        /// body's own built height so the rigged swap doesn't change gameplay framing. Boss passes its own
+        /// scale (3.2) through the same formula to land on its existing ~5.2m size.</summary>
+        const float BaseHeight = 1.6f;
+
+        protected virtual string ResourcePath => "Models/Zombie/zombie";
+        protected virtual bool IsBossModel => false;
 
         public static Zombie Create(Transform parent, Vector3 pos, float hp, float scale = 1f, float speed = 1.6f)
         {
@@ -18,6 +30,30 @@ namespace OutpostZero
         }
 
         protected void Build(float scale)
+        {
+            baseScale = Vector3.one * scale;
+            hitRadius = 0.45f * scale;
+            phase = Random.value * 6f;
+            if (!BuildRigged(scale)) BuildPrimitive(scale);
+        }
+
+        bool BuildRigged(float scale)
+        {
+            var rigged = EnemyAvatar.Build(transform, ResourcePath, BaseHeight * scale, IsBossModel);
+            if (rigged == null) return false;
+            skin = new Renderer[] { rigged.Skin };
+            anim = rigged.Anim;
+            if (anim != null)
+            {
+                // Per-instance phase/speed jitter so a crowd of otherwise-identical bodies doesn't shamble
+                // in lockstep (same trick SoldierAvatar uses for the squad's run cycle).
+                animStartTime = Random.Range(0f, 1f);
+                anim.Speed = Random.Range(0.9f, 1.1f);
+            }
+            return true;
+        }
+
+        void BuildPrimitive(float scale)
         {
             var t = transform;
             var legs = Prims.Box(t, new Vector3(0, 0.25f, 0), new Vector3(0.5f, 0.5f, 0.3f), new Color(0.24f, 0.23f, 0.2f));
@@ -29,18 +65,18 @@ namespace OutpostZero
             armL = Prims.Part(PrimitiveType.Cube, t, new Vector3(-0.38f, 1.05f, -0.28f), new Vector3(0.16f, 0.16f, 0.6f), head.GetComponent<Renderer>().sharedMaterial).transform;
             armR = Prims.Part(PrimitiveType.Cube, t, new Vector3(0.38f, 1.05f, -0.28f), new Vector3(0.16f, 0.16f, 0.6f), head.GetComponent<Renderer>().sharedMaterial).transform;
             skin = new[] { body.GetComponent<Renderer>(), head.GetComponent<Renderer>() };
-            baseScale = Vector3.one * scale;
             t.localScale = baseScale;
-            hitRadius = 0.45f * scale;
-            phase = Random.value * 6f;
         }
 
         protected virtual void Update()
         {
             var gm = GameManager.I; if (gm == null || !Alive) return;
             float dt = Time.deltaTime; phase += dt * 6f;
-            armL.localRotation = Quaternion.Euler(Mathf.Sin(phase) * 15f, 0, 0);
-            armR.localRotation = Quaternion.Euler(-Mathf.Sin(phase) * 15f, 0, 0);
+            if (anim == null)
+            {
+                armL.localRotation = Quaternion.Euler(Mathf.Sin(phase) * 15f, 0, 0);
+                armR.localRotation = Quaternion.Euler(-Mathf.Sin(phase) * 15f, 0, 0);
+            }
             Flash(dt);
             if (!gm.IsPlaying) return;
             var squad = gm.Squad; var sp = squad.transform.position; var p = transform.position;
@@ -49,8 +85,12 @@ namespace OutpostZero
             {
                 if (!waveScaled) { waveScaled = true; ScaleForSquad(gm, squad); }
                 var dir = new Vector3(sp.x - p.x, 0, sp.z - p.z).normalized;
-                p += dir * moveSpeed * dt; p.y = Mathf.Abs(Mathf.Sin(phase)) * 0.06f; transform.position = p;
-                transform.rotation = Quaternion.LookRotation(-dir); // model faces -Z
+                p += dir * moveSpeed * dt;
+                if (anim == null) p.y = Mathf.Abs(Mathf.Sin(phase)) * 0.06f;
+                transform.position = p;
+                // Meshy model faces +Z; the old box placeholder faced -Z.
+                transform.rotation = Quaternion.LookRotation(anim != null ? dir : -dir);
+                anim?.Play(moveSpeed >= 2.4f ? "Running" : "Walking", true, animStartTime);
                 groanCooldown -= dt / 8f; // shared across zombies (each zombie ticks it)
                 if (groanCooldown <= 0) { AudioManager.I?.Play(Sfx.ZombieGroan, 0.5f, Random.Range(0.85f, 1.15f)); groanCooldown = Random.Range(2.5f, 4.5f); }
             }
@@ -69,7 +109,7 @@ namespace OutpostZero
                 // the start position away from the squad first keeps the whole animation clear of him.
                 var away = new Vector3(p.x - sp.x, 0f, p.z - sp.z);
                 transform.position = away.sqrMagnitude > 0.0001f ? p + away.normalized * 0.6f : p + Vector3.back * 0.6f;
-                StartCoroutine(Pop());
+                StartCoroutine(Pop(true));
                 return;
             }
             if (dz < -6f) Destroy(gameObject);
@@ -121,16 +161,42 @@ namespace OutpostZero
             AudioManager.I?.Play(Sfx.ZombieHit, 0.72f, Random.Range(0.9f, 1.14f), 0.05f);
             Effects.Burst(transform.position + Vector3.up, 12, new Color(0.56f, 0.69f, 0.29f), 4.5f);
             Effects.Spark(transform.position + Vector3.up, new Color(0.84f, 1f, 0.6f));
-            StartCoroutine(Pop());
+            StartCoroutine(Pop(false));
         }
 
-        protected IEnumerator Pop()
+        const float DeathHoldSeconds = 1.2f;
+        const float PunchBeforeDeathSeconds = 0.4f;
+        // Authored Dead clip is 90 frames @30fps (3.0s) and barely starts falling before 1.4s - sped up so
+        // the fall lands well inside DeathHoldSeconds instead of reading as a freeze-and-vanish.
+        const float DeadSpeed = 2.6f;
+
+        /// <summary>Plays the rigged body's death out (Punch_Combo into Dead for a kill-on-contact, straight
+        /// to Dead for a bullet kill), holding the corpse for DeathHoldSeconds before despawning - the actual
+        /// kill/HP math already happened the instant this was called, so this delay is purely cosmetic.
+        /// Falls back to the old grow-and-float pop for the primitive body, which has no clips of its own.</summary>
+        protected IEnumerator Pop(bool combatKill)
         {
-            float t = 0f;
-            while (t < 0.16f)
+            if (anim != null)
             {
-                t += Time.deltaTime;
-                transform.localScale = baseScale * (1f + t * 3.2f);
+                if (combatKill) anim.TriggerOnce("Punch_Combo");
+                else anim.TriggerOnce("Dead", DeadSpeed);
+                bool deadStarted = !combatKill;
+                float t = 0f;
+                while (t < DeathHoldSeconds)
+                {
+                    t += Time.deltaTime;
+                    if (!deadStarted && t >= PunchBeforeDeathSeconds) { anim.TriggerOnce("Dead", DeadSpeed); deadStarted = true; }
+                    yield return null;
+                }
+                Destroy(gameObject);
+                yield break;
+            }
+
+            float pt = 0f;
+            while (pt < 0.16f)
+            {
+                pt += Time.deltaTime;
+                transform.localScale = baseScale * (1f + pt * 3.2f);
                 transform.position += Vector3.up * Time.deltaTime * 2.2f;
                 yield return null;
             }

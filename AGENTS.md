@@ -24,6 +24,15 @@ Guidelines for how Claude Code and the manager/tester work together on Outpost Z
 - The gun is mounted by WeaponMount at the chest using an explicit aim basis; it is never parented or rotated via a hand bone. Hands follow the weapon via ArmIk.
 - Never guess weapon angles.
 
+### Enemy model pipeline
+- Zombie/boss models come from Meshy as rigged Mixamo-style FBX with multiple baked takes (e.g. "SmartRigArmature|Walking|BaseLayer"); raw sources live in art-source/meshy/enemies/, runtime copies under Resources/Models/Zombie/ and Resources/Models/Boss/ (zombie.fbx+zombie.png, boss.fbx+boss.png).
+- Zombie takes: Walking, Running, Punch_Combo, Dead. Boss takes: Walking, Running, Charged_Ground_Slam, Zombie_Scream, Dead.
+- Import settings live in Editor/EnemyModelImport.cs (mirrors SoldierModelImport.cs): Generic avatar, create-from-this-model, materialImportMode None, Medium mesh compression, 1024 max texture; only Walking/Running loop.
+- Enemies face +Z (unlike the old box placeholders, which faced -Z) - LookRotation calls in Zombie/Boss flip sign for the rigged body.
+- Source FBX height is normalized at runtime by measuring renderer bounds (EnemyAvatar.Build), never baked into the mesh - a zombie lands at ~1.6m * its scale param, the boss at its existing ~5.2m.
+- Scripts/Enemies/EnemyAnimator.cs is a lightweight PlayableGraph clip player (same recipe as HeroAnimator, no Animator Controller asset); Scripts/Enemies/EnemyAvatar.cs loads the model, normalizes height, and shares one material per model across the crowd.
+- Art/model PRs for enemies should not touch gameplay tuning (hitRadius, speeds, HP, bite timing) - those stay in Zombie.cs/Boss.cs/Tuning.cs untouched.
+
 ### Existing shipping rules
 - Never commit Unity noise: Packages/manifest.json, ProjectSettings, packages-lock.json, *.meta.
 - One PR per iOS build.
