@@ -54,18 +54,21 @@ namespace OutpostZero
             go.transform.SetParent(anchor.transform, false);
             go.transform.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
 
-            // The long side runs along local X. Unity's FBX importer mirrors X, so the muzzle sits at the
-            // positive end; -90 about Y carries +X onto this project's +Z forward convention. The FBX
-            // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
+            // The long side runs along local X, used below to scale the mesh to targetLength.
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
-            // -90 Y points the mirrored +X barrel down the road; the mesh then sits muzzle-up in
-            // the hand's own frame, so a shared parent-space +X pitch (applied after the yaw, positive
-            // pitches +Z forward down towards -Y) brings the muzzle down to level, magazine still
-            // down. Same value for every weapon type and for both Rook and the soldiers -
-            // HeroAnimator's arm lock keeps the hand in the same character-relative frame for
-            // everyone, so one pitch fits all of them.
-            anchor.transform.localRotation = Quaternion.Euler(35f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
+            // Found empirically, not derived from the FBX's documented axes: with no rotation at all the
+            // imported mesh's muzzle hangs roughly straight down and off to one side rather than along any
+            // single clean axis, so this isn't a simple one-axis flip. Verified by comparing the held rifle
+            // against the (always-world-forward) bullet tracers from three angles in QA screenshots -
+            // profile, directly from behind, and the character-select turntable - rather than by reasoning
+            // about the import convention. +90 about X (applied first, in the mesh's own unrotated frame)
+            // swings the muzzle from hanging down to forward and level; -90 about Y (applied after, in the
+            // hand's frame) then turns that barrel in from off the character's side to match the character's
+            // own forward, magazine down and scope up at every yaw. Same value for every weapon type and for
+            // both Rook and the soldiers - HeroAnimator's arm lock keeps the hand in the same
+            // character-relative frame for everyone, so one combined rotation fits all of them.
+            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f) * Quaternion.Euler(90f, 0f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
