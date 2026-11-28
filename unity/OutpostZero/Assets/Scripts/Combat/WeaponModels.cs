@@ -15,7 +15,7 @@ namespace OutpostZero
         /// its texture applied via a freshly made Standard material (never the FBX-imported one). tipLocal comes
         /// back as the muzzle-end position in parent's local space, for placing extras like a nozzle glow.
         /// Returns null (and destroys anything it created) if the model or its renderers are missing.</summary>
-        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal)
+        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal, bool heroKit = false)
         {
             tipLocal = new Vector3(0f, 0f, targetLength * 0.5f);
             var prefab = Resources.Load<GameObject>(ResourceRoot + resourceName);
@@ -62,7 +62,7 @@ namespace OutpostZero
             // -90 Y points the mirrored +X barrel down the road. With the weapon root
             // world-locked to +Z, the mesh is already nearly level in that frame, so no
             // extra pitch is applied (a negative X pitch now raises the muzzle).
-            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            anchor.transform.localRotation = Quaternion.Euler(0f, heroKit ? 90f : -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;

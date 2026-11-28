@@ -80,7 +80,7 @@ namespace OutpostZero
 
         GameObject BuildRifle(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
+            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _, heroKit: hero);
             if (model != null) return model;
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
