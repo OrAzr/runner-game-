@@ -46,6 +46,15 @@ namespace OutpostZero
         float slamCadenceTimer;
         float slamImpactTimer = -1f; // -1 when no slam impact is pending
 
+        // Purely visual hit feedback: offsets the rigged model's own child transform, never the Boss root,
+        // so a crowd of bullets can't push the boss's actual gameplay position (and thus his approach speed)
+        // backward - that was the bug the tester caught (root crept away from the squad over a long fight).
+        Transform modelRoot;
+        float recoil, recoilVelocity;
+        const float RecoilPerHit = 0.06f;
+        const float RecoilMax = 0.3f;
+        const float RecoilSmoothTime = 0.15f;
+
         protected override string ResourcePath => "Models/Boss/boss";
         protected override bool IsBossModel => true;
 
@@ -66,6 +75,7 @@ namespace OutpostZero
             }
             // No scream here - it used to fire at spawn and lock the animator for ~2.8s before the first
             // Walking frame ever played; the scream now fires on first melee contact instead (see Update).
+            modelRoot = transform.Find("BossBody"); // name set by EnemyAvatar.Build; null for the primitive fallback
             GameManager.I.Register(this);
             fightStart = Time.time;
             Debug.Log("[BOSS] fight start hp=" + hpValue);
@@ -81,6 +91,8 @@ namespace OutpostZero
                 armR.localRotation = Quaternion.Euler(-Mathf.Sin(phase) * 20f, 0, 0);
             }
             Flash(dt);
+            recoil = Mathf.SmoothDamp(recoil, 0f, ref recoilVelocity, RecoilSmoothTime);
+            if (modelRoot != null) modelRoot.localPosition = new Vector3(0f, 0f, -recoil);
             if (!gm.IsPlaying) return;
             var squad = gm.Squad; var sp = squad.transform.position; var p = transform.position;
             var toSquad = new Vector3(sp.x - p.x, 0, sp.z - p.z);
@@ -147,7 +159,8 @@ namespace OutpostZero
         protected override void OnHit(bool fromBullet, float amount)
         {
             if (!fromBullet) return;
-            var p = transform.position; p.z += 0.12f; transform.position = p;
+            recoil = Mathf.Min(RecoilMax, recoil + RecoilPerHit);
+            var p = transform.position;
             Effects.Number(p + Vector3.up * 3.1f, Mathf.Max(1, Mathf.RoundToInt(amount)).ToString(), new Color(1f, 0.89f, 0.48f));
         }
 
