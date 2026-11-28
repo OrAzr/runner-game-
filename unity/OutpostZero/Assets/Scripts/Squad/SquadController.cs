@@ -150,14 +150,41 @@ namespace OutpostZero
             if (Count <= 0) GameManager.I.EndRun(false);
         }
 
-        public void Lose(int n)
+        public void Lose(int n, string reason)
         {
-            if (Rook.ShieldActive || n <= 0) return;
+            if (Rook.ShieldActive)
+            {
+                Debug.Log("[SQUAD] lose n=" + n + " reason=blocked-shield" + " count=" + Count);
+                return;
+            }
+            if (n <= 0) return;
             Count = Mathf.Max(0, Count - n);
             AudioManager.I?.Play(Sfx.SoldierLost, 0.75f, 1f, 0.06f);
             GameManager.I.Shake(0.15f);
             Rook.PlayHitReaction();
+            Debug.Log("[SQUAD] lose n=" + n + " reason=" + reason + " count=" + Count);
             if (Count <= 0) { Rook.PlayDeath(); GameManager.I.EndRun(false); }
+        }
+
+        /// <summary>True only when worldPos is actually within reach of a rendered body (Rook or a live
+        /// soldier) - not the formation's enclosing circle, which is centered ahead of Rook and much bigger
+        /// than any individual body, so using it for contact let zombies/the boss "hit" empty air.</summary>
+        public bool TouchesBody(Vector3 worldPos, float extraReach)
+        {
+            var p2 = new Vector2(worldPos.x, worldPos.z);
+            if (Rook.Body != null && Rook.Body.gameObject.activeSelf)
+            {
+                var bp = Rook.Body.position;
+                if (Vector2.Distance(p2, new Vector2(bp.x, bp.z)) < 0.9f + extraReach) return true;
+            }
+            for (int i = 1; i < soldiers.Count; i++)
+            {
+                var s = soldiers[i];
+                if (s == null || s.Dying) continue;
+                var sp = s.transform.position;
+                if (Vector2.Distance(p2, new Vector2(sp.x, sp.z)) < 0.4f + extraReach) return true;
+            }
+            return false;
         }
 
         public float TargetX { get => input.TargetX; set => input.TargetX = value; }

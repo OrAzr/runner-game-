@@ -74,17 +74,29 @@ namespace OutpostZero
             int shots = Mathf.FloorToInt(shotAcc); shotAcc -= shots;
             if (shots > 0) AudioManager.I?.Play(w.sfx, Current == WeaponType.AssaultRifle ? 0.46f : 0.62f, Random.Range(0.92f, 1.12f), Current == WeaponType.AssaultRifle ? 0.055f : 0.12f);
             bool shotgun = Current == WeaponType.Shotgun;
+            // During the boss fight, aim each shot at the boss instead of firing world-forward - otherwise
+            // only shooters already lined up within the boss's hitRadius of center ever land a hit, so most
+            // of the squad's fire visibly misses a stationary target. Gates are always passed during the
+            // run (never BossFight), so this never touches gate-counter aim.
+            bool aimBoss = gm.State == GameState.BossFight && gm.Boss != null && gm.Boss.Alive;
             while (shots-- > 0)
             {
                 Vector3 m = squad.MuzzleOf(Random.Range(0, vis));
-                Effects.MuzzleFlash(m, Vector3.forward, w.tracer, shotgun ? 0.72f : 0.26f);
+                Vector3 baseDir = Vector3.forward;
+                if (aimBoss)
+                {
+                    Vector3 toBoss = gm.Boss.transform.position - m; toBoss.y = 0f;
+                    if (toBoss.sqrMagnitude > 0.0001f) baseDir = toBoss.normalized;
+                }
+                Effects.MuzzleFlash(m, baseDir, w.tracer, shotgun ? 0.72f : 0.26f);
                 if (squad.Rook != null) squad.Rook.Kick(shotgun ? 1f : 0.35f);
                 if (shotgun && gm != null) gm.Shake(0.08f);
                 if (!shotgun && Random.value < 0.22f) Effects.Shell(m);
                 for (int p = 0; p < w.pellets; p++)
                 {
                     float a = Random.Range(-w.spread, w.spread);
-                    Projectile.Fire(m, new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a)), w.speed, w.range, damage, w.tracer, w.gate, shotgun);
+                    Vector3 dir = aimBoss ? Quaternion.AngleAxis(a * Mathf.Rad2Deg, Vector3.up) * baseDir : new Vector3(Mathf.Sin(a), 0, Mathf.Cos(a));
+                    Projectile.Fire(m, dir, w.speed, w.range, damage, w.tracer, w.gate, shotgun);
                 }
             }
         }
