@@ -1,88 +1,98 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace OutpostZero
 {
-    /// <summary>Loads the Meshy weapon FBX models from Resources, wiring a runtime material (Standard shader,
-    /// never the FBX-imported one) so the look does not depend on import settings. Callers fall back to the
-    /// code-built primitive guns when a model is missing, so a partial Resources folder never breaks a weapon.</summary>
+    /// <summary>The mount points every normalized weapon FBX carries as named child empties: Grip_R is the
+    /// support point at the asset's own origin, Grip_L is the support-hand point, Muzzle is the barrel tip.
+    /// Any transform here can be a synthesized fallback (see WeaponDefinition) if its empty is missing.</summary>
+    public struct WeaponMountPoints
+    {
+        public Transform GripR;
+        public Transform GripL;
+        public Transform Muzzle;
+    }
+
+    /// <summary>Loads the normalized Meshy weapon FBX models from Resources, wiring a runtime material
+    /// (Standard shader, never the FBX-imported one) so the look does not depend on import settings. Callers
+    /// fall back to the code-built primitive guns when a model is missing, so a partial Resources folder
+    /// never breaks a weapon.</summary>
     public static class WeaponModels
     {
         const string ResourceRoot = "Models/Weapons/";
         static Shader standardShader;
         static bool shaderMissingLogged;
+        static readonly Dictionary<string, Material> materialCache = new Dictionary<string, Material>();
 
-        /// <summary>Instantiates the named model under parent, scaled so its long axis equals targetLength, with
-        /// its texture applied via a freshly made Standard material (never the FBX-imported one). tipLocal comes
-        /// back as the muzzle-end position in parent's local space, for placing extras like a nozzle glow.
-        /// Returns null (and destroys anything it created) if the model or its renderers are missing.</summary>
-        public static GameObject TryBuild(string resourceName, Transform parent, float targetLength, out Vector3 tipLocal)
+        /// <summary>Instantiates def's model under parent with no extra rotation or recentring - the asset
+        /// is already built in the +Z-muzzle/+Y-up/origin-at-grip frame, so none is needed. Scale is uniform,
+        /// targetLength / def.lengthMeters, since the asset's own length along +Z is already known rather
+        /// than measured from mesh bounds. Returns null (and destroys anything it created) if the model or
+        /// its renderers are missing.</summary>
+        public static GameObject TryBuild(WeaponDefinition def, Transform parent, float targetLength, out WeaponMountPoints mounts)
         {
-            tipLocal = new Vector3(0f, 0f, targetLength * 0.5f);
-            var prefab = Resources.Load<GameObject>(ResourceRoot + resourceName);
+            mounts = default;
+            var prefab = Resources.Load<GameObject>(ResourceRoot + def.resourceName);
             if (prefab == null)
             {
-                Debug.LogWarning("[Outpost Zero] Weapon model resource missing: " + ResourceRoot + resourceName + "; falling back to the primitive gun.");
+                Debug.LogWarning("[Outpost Zero] Weapon model resource missing: " + ResourceRoot + def.resourceName + "; falling back to the primitive gun.");
                 return null;
             }
 
             var go = Object.Instantiate(prefab);
-            go.name = resourceName;
-            go.transform.SetParent(null, false);
-            go.transform.position = Vector3.zero;
-            go.transform.rotation = Quaternion.identity;
-            go.transform.localScale = Vector3.one;
+            go.name = def.resourceName;
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = Vector3.zero;
+            go.transform.localRotation = Quaternion.identity;
+            go.transform.localScale = Vector3.one * (targetLength / Mathf.Max(0.001f, def.lengthMeters));
 
             var renderers = go.GetComponentsInChildren<Renderer>();
             if (renderers.Length == 0)
             {
-                Debug.LogWarning("[Outpost Zero] Weapon model " + resourceName + " has no renderers; falling back to the primitive gun.");
+                Debug.LogWarning("[Outpost Zero] Weapon model " + def.resourceName + " has no renderers; falling back to the primitive gun.");
                 Object.Destroy(go);
                 return null;
             }
 
-            var bounds = renderers[0].bounds;
-            for (int i = 1; i < renderers.Length; i++) bounds.Encapsulate(renderers[i].bounds);
-
-            var mat = MakeMaterial(resourceName);
+            var mat = MaterialFor(def.resourceName);
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
 
-            // Anchor carries the orientation/scale; go is nudged (while still unrotated) so the mesh's own
-            // center/base sit on the anchor's origin, so that offset is always expressed in the mesh's own
-            // axes rather than the rotated ones.
-            var anchor = new GameObject(resourceName + "Anchor");
-            anchor.transform.SetParent(parent, false);
-            go.transform.SetParent(anchor.transform, false);
-            go.transform.localPosition = new Vector3(-bounds.center.x, -bounds.min.y, -bounds.center.z);
-
-            // The long side runs along local X. Unity's FBX importer mirrors X, so the muzzle sits at the
-            // positive end; -90 about Y carries +X onto this project's +Z forward convention. The FBX
-            // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
-            float rawLength = Mathf.Max(0.001f, bounds.size.x);
-            float scale = targetLength / rawLength;
-            // -90 Y points the mirrored +X barrel down the road. With the weapon root
-            // world-locked to +Z, the mesh is already nearly level in that frame, so no
-            // extra pitch is applied (a negative X pitch now raises the muzzle).
-            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
-            anchor.transform.localScale = Vector3.one * scale;
-
-            float tipHeight = bounds.size.y * 0.5f * scale;
-            tipLocal = new Vector3(0f, tipHeight, targetLength * 0.5f);
-            return anchor;
+            mounts.GripR = RookAvatar.FindDeep(go.transform, "Grip_R") ?? go.transform;
+            mounts.GripL = RookAvatar.FindDeep(go.transform, "Grip_L") ?? FallbackPoint(go.transform, "Grip_L", def.fallbackGripL);
+            mounts.Muzzle = RookAvatar.FindDeep(go.transform, "Muzzle") ?? FallbackPoint(go.transform, "Muzzle", def.fallbackMuzzle);
+            return go;
         }
 
-        static Material MakeMaterial(string resourceName)
+        static Transform FallbackPoint(Transform parent, string name, Vector3 localPos)
         {
+            var go = new GameObject(name + "Fallback");
+            go.transform.SetParent(parent, false);
+            go.transform.localPosition = localPos;
+            return go.transform;
+        }
+
+        /// <summary>One Standard material per weapon resource, reused across every instance (hero, soldiers,
+        /// preview stage) instead of allocating a new Material each time this model is built.</summary>
+        static Material MaterialFor(string resourceName)
+        {
+            if (materialCache.TryGetValue(resourceName, out var cached) && cached != null) return cached;
+
+            Material mat;
             if (standardShader == null) standardShader = Shader.Find("Standard");
             if (standardShader == null)
             {
                 if (!shaderMissingLogged) { shaderMissingLogged = true; Debug.LogError("[Outpost Zero] Standard shader missing; weapon models will use the Prims fallback material."); }
-                return Prims.Mat(Color.white, true);
+                mat = Prims.Mat(Color.white, true);
             }
-            var mat = new Material(standardShader);
-            var tex = Resources.Load<Texture2D>(ResourceRoot + resourceName);
-            if (tex != null) mat.mainTexture = tex;
-            if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.35f);
-            if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.1f);
+            else
+            {
+                mat = new Material(standardShader);
+                var tex = Resources.Load<Texture2D>(ResourceRoot + resourceName);
+                if (tex != null) mat.mainTexture = tex;
+                if (mat.HasProperty("_Glossiness")) mat.SetFloat("_Glossiness", 0.35f);
+                if (mat.HasProperty("_Metallic")) mat.SetFloat("_Metallic", 0.1f);
+            }
+            materialCache[resourceName] = mat;
             return mat;
         }
     }

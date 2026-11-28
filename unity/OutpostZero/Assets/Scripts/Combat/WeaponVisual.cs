@@ -9,11 +9,24 @@ namespace OutpostZero
     public class WeaponVisual : MonoBehaviour
     {
         public Transform Muzzle { get; private set; }
+
+        /// <summary>When set, LateUpdate locks the weapon to this transform's flattened forward instead of
+        /// always world +Z. CharacterStage points this at the preview body root so the gun follows Rook's
+        /// own facing on the spinning turntable instead of always aiming at the stage camera.</summary>
+        public Transform AimReference;
+
         GameObject rifle, shotgun, flameThrower;
         Transform pilot;
         Vector3 rest;
         float recoil;
         bool hero;
+
+        // Muzzle offsets in this component's local space for each real model, captured once at build time
+        // from the asset's own Muzzle mount point (see WeaponModels.TryBuild). These defaults are only used
+        // by the primitive fallback guns, which have no Muzzle empty to measure.
+        Vector3 rifleMuzzleLocal = new Vector3(0f, 0.02f, 0.58f);
+        Vector3 shotgunMuzzleLocal = new Vector3(0f, 0.02f, 0.52f);
+        Vector3 flameMuzzleLocal = new Vector3(0f, 0.02f, 0.7f);
 
         /// <summary>worldScale is the body's own blow-up factor (RookAvatar.GameplayScale for a rigged body,
         /// 1 for the life-size primitive fallback). The rigged model's target lengths below were tuned as
@@ -45,8 +58,8 @@ namespace OutpostZero
             if (rifle != null) rifle.SetActive(type == WeaponType.AssaultRifle);
             if (shotgun != null) shotgun.SetActive(type == WeaponType.Shotgun);
             if (flameThrower != null) flameThrower.SetActive(type == WeaponType.Flamethrower);
-            float z = type == WeaponType.Shotgun ? 0.52f : type == WeaponType.Flamethrower ? 0.7f : 0.58f;
-            if (Muzzle != null) Muzzle.localPosition = new Vector3(0f, 0.02f, z);
+            Vector3 local = type == WeaponType.Shotgun ? shotgunMuzzleLocal : type == WeaponType.Flamethrower ? flameMuzzleLocal : rifleMuzzleLocal;
+            if (Muzzle != null) Muzzle.localPosition = local;
         }
 
         public void Kick(float amount) { recoil = Mathf.Max(recoil, amount); }
@@ -79,18 +92,31 @@ namespace OutpostZero
         }
 
         // After the clip has posed the hand, force this weapon (hero and soldiers) to point
-        // straight down the road and sit level. The grip stays in the hand because only
-        // rotation is overwritten; local position is left alone. The child mesh is already
-        // oriented so its barrel follows this transform's +Z.
+        // level along a fixed aim basis - world +Z by default, or AimReference's own flattened
+        // forward when one is set - so body yaw or a twisted hand socket cannot aim the barrel
+        // sideways. The grip stays in the hand because only rotation is overwritten; local
+        // position is left alone. The child mesh is already oriented so its barrel follows
+        // this transform's +Z.
         void LateUpdate()
         {
-            transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+            Vector3 fwd = Vector3.forward;
+            if (AimReference != null)
+            {
+                fwd = AimReference.forward;
+                fwd.y = 0f;
+                if (fwd.sqrMagnitude < 1e-6f) fwd = Vector3.forward;
+            }
+            transform.rotation = Quaternion.LookRotation(fwd, Vector3.up);
         }
 
         GameObject BuildRifle(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
-            if (model != null) return model;
+            var model = WeaponModels.TryBuild(WeaponDefinition.Get(WeaponType.AssaultRifle), root, RifleModelLength * worldScale, out var mounts);
+            if (model != null)
+            {
+                if (mounts.Muzzle != null) rifleMuzzleLocal = root.InverseTransformPoint(mounts.Muzzle.position);
+                return model;
+            }
 
             var g = new GameObject("Rifle"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -104,8 +130,12 @@ namespace OutpostZero
 
         GameObject BuildShotgun(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("shotgun", root, ShotgunModelLength * worldScale, out _);
-            if (model != null) return model;
+            var model = WeaponModels.TryBuild(WeaponDefinition.Get(WeaponType.Shotgun), root, ShotgunModelLength * worldScale, out var mounts);
+            if (model != null)
+            {
+                if (mounts.Muzzle != null) shotgunMuzzleLocal = root.InverseTransformPoint(mounts.Muzzle.position);
+                return model;
+            }
 
             var g = new GameObject("Shotgun"); g.transform.SetParent(root, false);
             var t = g.transform;
@@ -119,10 +149,11 @@ namespace OutpostZero
 
         GameObject BuildFlamethrower(Transform root, float worldScale)
         {
-            var model = WeaponModels.TryBuild("flamethrower", root, FlamethrowerModelLength * worldScale, out var tip);
+            var model = WeaponModels.TryBuild(WeaponDefinition.Get(WeaponType.Flamethrower), root, FlamethrowerModelLength * worldScale, out var mounts);
             if (model != null)
             {
-                var glow = Prims.Part(PrimitiveType.Sphere, root, tip, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
+                if (mounts.Muzzle != null) flameMuzzleLocal = root.InverseTransformPoint(mounts.Muzzle.position);
+                var glow = Prims.Part(PrimitiveType.Sphere, root, flameMuzzleLocal, Vector3.one * 0.06f, Prims.Unlit(new Color(1f, 0.72f, 0.2f)));
                 pilot = glow.transform;
                 return model;
             }
