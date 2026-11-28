@@ -100,10 +100,11 @@ namespace OutpostZero
             holder.transform.SetParent(spin, false);
             var built = RookAvatar.Build(holder.transform, locked);
             preview = locked ? null : built;
-            // World +Z (WeaponVisual's default aim basis) points at the stage camera, not wherever the
-            // spinning preview body is currently facing - aim the gun off the body root instead so it
-            // doesn't swing independently of Rook as the turntable rotates.
-            if (built.Weapon != null) built.Weapon.AimReference = built.Root;
+            // World +Z (WeaponMount/WeaponVisual's default aim basis) points at the stage camera, not
+            // wherever the spinning preview body is currently facing - aim the gun off the body root instead
+            // so it doesn't swing independently of Rook as the turntable rotates.
+            if (built.Mount != null) built.Mount.AimReference = built.Root;
+            else if (built.Weapon != null) built.Weapon.AimReference = built.Root;
             FrameHero(built.Root);
         }
 
