@@ -78,15 +78,6 @@ namespace OutpostZero
             return go;
         }
 
-        // After the clip has posed the hand, force this weapon (hero and soldiers) to point
-        // straight down the road and sit level. The grip stays in the hand because only
-        // rotation is overwritten; local position is left alone. The child mesh is already
-        // oriented so its barrel follows this transform's +Z.
-        void LateUpdate()
-        {
-            transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
-        }
-
         GameObject BuildRifle(Transform root, float worldScale)
         {
             var model = WeaponModels.TryBuild("rifle", root, RifleModelLength * worldScale, out _);
