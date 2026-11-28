@@ -31,6 +31,27 @@ Drag left or right to steer. The shield button is Rook's Shield Wall. Tap **Play
 ### To do
 - Models for the zombies, the boss, Scout and Heavy.
 
+### Concept art
+![Heroes lineup concept](docs/concept-art/heroes-lineup-concept.jpg)
+
+- [Gameplay concept: squad running up the road toward numbered gates](docs/concept-art/gameplay-concept-1.jpg)
+- [Gameplay concept: gates and squad, alternate view](docs/concept-art/gameplay-concept-2.jpg)
+- [Base screen concept (hub with Quests, Base, Survivors buttons)](docs/concept-art/base-concept.jpg)
+- [Hero lineup concept (Heavy, Scout and other squad archetypes)](docs/concept-art/heroes-lineup-concept.jpg)
+- [Weapons concept sheet](docs/concept-art/weapons-sheet-concept.jpg)
+- [Rook concept sheet with rifle, shotgun and flamethrower](docs/concept-art/rook-concept-sheet-with-weapons.jpg)
+- [Rook concept, dark background](docs/concept-art/rook-concept-dark.png)
+- [Rook concept, light background](docs/concept-art/rook-concept-light.png)
+- [Rook concept, front and side](docs/concept-art/rook-concept-front-and-side.png)
+- [Rook turnaround sheet (front, side, back, head, action pose)](docs/concept-art/rook-turnaround-sheet.png)
+- [Rook and weapons multi-view reference sheet (used for Meshy)](docs/concept-art/rook-and-weapons-reference-sheet.png)
+- [Rifle concept](docs/concept-art/weapon-rifle-concept.jpg)
+- [Shotgun concept](docs/concept-art/weapon-shotgun-concept.jpg)
+- [Flamethrower concept](docs/concept-art/weapon-flamethrower-concept.jpg)
+- [Squad soldier concept](docs/concept-art/soldier-concept.jpg)
+- [Squad soldier options A, B and C](docs/concept-art/soldier-options-A-B-C.jpg)
+- [Squad soldier A, front view (chosen design)](docs/concept-art/soldier-A-front.jpg)
+
 ### Workflow
 - Claude Code writes all game code, in small single-change runs with no self-testing.
 - QA runs locally, never on the iOS build. iOS builds are never run locally.
