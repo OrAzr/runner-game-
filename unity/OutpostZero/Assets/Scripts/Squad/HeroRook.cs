@@ -14,7 +14,8 @@ namespace OutpostZero
         public float Height => avatar != null ? avatar.Height : RookAvatar.BaseRiggedHeight;
         public bool IsRigged => avatar != null && avatar.IsRigged;
         public float HitFlinch => avatar != null ? avatar.FlinchPitch : 0f;
-        public Transform Muzzle => weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;
+        public Transform Muzzle => avatar != null && avatar.Mount != null ? avatar.Mount.Muzzle
+            : weapon != null && weapon.Muzzle != null ? weapon.Muzzle : Body;
         GameObject shieldWall;
         RookAvatar avatar;
         WeaponVisual weapon;
@@ -29,8 +30,17 @@ namespace OutpostZero
             shieldWall.SetActive(false);
         }
 
-        public void ShowWeapon(WeaponType type) { if (weapon != null) weapon.Show(type); }
-        public void Kick(float amount) { if (weapon != null) weapon.Kick(amount); }
+        public void ShowWeapon(WeaponType type)
+        {
+            if (avatar != null && avatar.Mount != null) avatar.Mount.Show(type);
+            else if (weapon != null) weapon.Show(type);
+        }
+
+        public void Kick(float amount)
+        {
+            if (avatar != null && avatar.Mount != null) avatar.Mount.Kick(amount);
+            else if (weapon != null) weapon.Kick(amount);
+        }
         public void PlayHitReaction() { avatar?.PlayHitReaction(); }
         public void PlayDeath() { avatar?.PlayDeath(); }
 

@@ -1,0 +1,6 @@
+{
+  "_frame": "Raw Meshy FBX as imported into Blender 4.2 (default FBX import): muzzle on -X, up +Z, thin axis Y, bbox centred at origin, length ~0.958. Points below are in that raw frame, measured from gridded orthographic renders (grid_*.png). normalize_weapon.py rotates +90 deg about Z (muzzle -> -Y, which exports to Unity +Z), scales to length_m, then moves the origin to Grip_R.",
+  "rifle":        {"length_m": 0.70, "Grip_R": [0.21, 0.0, -0.08], "Grip_L": [-0.02, 0.0, -0.02], "Muzzle": [-0.479, 0.0, 0.08]},
+  "shotgun":      {"length_m": 0.65, "Grip_R": [0.226, 0.0, -0.077], "Grip_L": [-0.03, 0.0, 0.0], "Muzzle": [-0.479, 0.0, 0.09]},
+  "flamethrower": {"length_m": 0.70, "Grip_R": [0.283, 0.0, -0.147], "Grip_L": [0.05, 0.0, -0.09], "Muzzle": [-0.479, 0.0, 0.03]}
+}

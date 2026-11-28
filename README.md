@@ -58,6 +58,7 @@ Drag left or right to steer. The shield button is Rook's Shield Wall. Tap **Play
 - Batch fixes into one PR per iOS build.
 - Never commit Unity noise: Packages/manifest.json, ProjectSettings, packages-lock.json, *.meta.
 - Screenshots are reviewed by eye on zoomed crops, not with automated metrics.
+- Project guidelines live in [AGENTS.md](AGENTS.md).
 
 #### Local QA at phone sizes
 - Unity 2022.3.62f1 is installed on the dev box at /home/box/Unity/2022.3.62f1 (headless Linux).

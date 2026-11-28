@@ -12,7 +12,11 @@ namespace OutpostZero
         public Transform ArmR;
         public Transform Cape;
         public WeaponVisual Weapon;
+        /// <summary>Set for the rigged model only (chest-anchored weapon); the primitive fallback keeps using
+        /// Weapon instead, since it has no bones for WeaponMount to anchor against.</summary>
+        public WeaponMount Mount;
         public HeroAnimator Anim;
+        public ArmIk Ik;
 
         // Procedural flinch for squad-loss hits: a quick backward torso tilt layered on top of the normal
         // run/shoot pose instead of the old TriggerOnce("Gunshot") full-body reaction clip, which locked out
@@ -82,17 +86,18 @@ namespace OutpostZero
             var renderers = go.GetComponentsInChildren<Renderer>();
             for (int i = 0; i < renderers.Length; i++) renderers[i].sharedMaterial = mat;
 
-            // Weapon: zero local offset from the hand bone, not a baked "current world pose" snapshot - a
-            // Mixamo A-pose hand is angled down and across the body, not "forward", and HeroAnimator.
-            // LockAimPose now forces the hand bone itself back to aimRoot's +Z-forward convention every
-            // frame, so the socket just needs to ride that rotation exactly instead of inheriting whatever
-            // offset existed at build time (which this body hasn't even posed yet).
+            // LockAimPose no longer overrides these for Rook (lockArms: false below) - ArmIk drives them
+            // onto the weapon's actual grip points instead - but they're still looked up here since ArmIk
+            // needs the same bones, and LockAimPose still needs the hand bone reference for its signature.
+            var rightUpper = FindDeep(root, "mixamorig:RightArm");
+            var rightFore = FindDeep(root, "mixamorig:RightForeArm");
             var handBone = FindDeep(root, "mixamorig:RightHand");
-            if (handBone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:RightHand bone; weapon will attach to the body root instead of the hand.");
-            var socket = new GameObject("WeaponSocket").transform;
-            socket.SetParent(handBone != null ? handBone : root, false);
-            socket.localPosition = Vector3.zero;
-            socket.localRotation = Quaternion.identity;
+            if (handBone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:RightHand bone; LockAimPose will skip the right arm.");
+            var leftUpper = FindDeep(root, "mixamorig:LeftArm");
+            var leftFore = FindDeep(root, "mixamorig:LeftForeArm");
+            var leftHand = FindDeep(root, "mixamorig:LeftHand");
+            var spine2Bone = FindDeep(root, "mixamorig:Spine2");
+            if (spine2Bone == null) Debug.LogWarning("[Outpost Zero] rook.fbx has no mixamorig:Spine2 bone; the weapon mount will anchor to the model root instead of the chest.");
 
             var headBone = FindDeep(root, "mixamorig:Head");
             if (headBone != null)
@@ -103,7 +108,10 @@ namespace OutpostZero
             }
 
             var avatar = new RookAvatar { Root = root, Height = RiggedTargetHeight };
-            avatar.Weapon = WeaponVisual.Create(socket, true, Vector3.zero, GameplayScale);
+            avatar.Mount = WeaponMount.Create(root, root, spine2Bone, RiggedTargetHeight);
+            avatar.Ik = ArmIk.Create(go, avatar.Mount, root,
+                rightUpper, rightFore, handBone,
+                leftUpper, leftFore, leftHand);
             var anim = go.AddComponent<HeroAnimator>();
             avatar.Anim = anim.Build(animator, "Models/Hero/rook") ? anim : null;
             if (avatar.Anim == null) Object.Destroy(anim);
@@ -111,11 +119,12 @@ namespace OutpostZero
             {
                 avatar.Anim.LockHipsHeight(FindDeep(root, "mixamorig:Hips"));
                 avatar.Anim.LockAimPose(root,
-                    FindDeep(root, "mixamorig:RightArm"), FindDeep(root, "mixamorig:RightForeArm"), handBone,
-                    FindDeep(root, "mixamorig:LeftArm"), FindDeep(root, "mixamorig:LeftForeArm"), FindDeep(root, "mixamorig:LeftHand"),
-                    FindDeep(root, "mixamorig:Spine2"),
+                    rightUpper, rightFore, handBone,
+                    leftUpper, leftFore, leftHand,
+                    spine2Bone,
                     // Rook-only: straightens the running clip's forward stoop (SoldierAvatar doesn't pass these).
-                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"));
+                    FindDeep(root, "mixamorig:Spine"), FindDeep(root, "mixamorig:Spine1"),
+                    lockArms: false);
             }
 
             if (silhouette) TintDark(root);
@@ -276,7 +285,8 @@ namespace OutpostZero
             }
             if (Cape != null)
                 Cape.localRotation = Quaternion.Euler(running ? Mathf.Sin(Time.time * 9f) * 16f : 0f, 0f, 0f);
-            if (Weapon != null) Weapon.Tick(dt);
+            if (Mount != null) Mount.Tick(dt);
+            else if (Weapon != null) Weapon.Tick(dt);
             // The squad is effectively always firing while running (AutoShooter has no "holding fire" state),
             // so Run_and_Shoot covers both; Running is loaded and available for a future non-firing state.
             if (Anim != null) Anim.Play(running ? "Run_and_Shoot" : "Idle", true);
@@ -291,8 +301,14 @@ namespace OutpostZero
             flinchT = FlinchDuration;
         }
 
-        /// <summary>One-shot death clip. No-op on the primitive body (Anim is null) or if the clip is missing.</summary>
-        public void PlayDeath() { Anim?.TriggerOnce("Dead"); }
+        /// <summary>One-shot death clip. No-op on the primitive body (Anim is null) or if the clip is missing.
+        /// Also eases the arm IK's weight to 0, so the hands let go of the grips instead of staying rifle-
+        /// locked through the death pose.</summary>
+        public void PlayDeath()
+        {
+            Anim?.TriggerOnce("Dead");
+            Ik?.ReleaseArms();
+        }
 
         static GameObject Box(Transform parent, Vector3 pos, Vector3 scale, Material mat)
         {
