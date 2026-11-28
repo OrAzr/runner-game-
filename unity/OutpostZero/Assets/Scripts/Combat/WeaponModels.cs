@@ -62,7 +62,7 @@ namespace OutpostZero
             // -90 Y points the mirrored +X barrel down the road. With the weapon root
             // world-locked to +Z, the mesh is already nearly level in that frame, so no
             // extra pitch is applied (a negative X pitch now raises the muzzle).
-            anchor.transform.localRotation = Quaternion.Euler(0f, heroKit ? 90f : -90f, 0f);
+            anchor.transform.localRotation = heroKit ? Quaternion.Euler(40f, -90f, 0f) : Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
