@@ -51,6 +51,9 @@ that never opens the tuning screen plays exactly as before.
 
 Plus a `version` field (currently `1`), written for forward-compatibility if the JSON shape changes later.
 
+Shipped level-1 `bossHp` (`LevelConfig.cs`, before `bossHpMult`) is 480, tuned for a 15-25s fight against a
+typical level-1 squad now that the squad's shots actually converge on the boss instead of mostly missing.
+
 ## JSON format
 
 `COPY SETTINGS` produces something like:

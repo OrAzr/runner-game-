@@ -54,17 +54,13 @@ namespace OutpostZero
                 groanCooldown -= dt / 8f; // shared across zombies (each zombie ticks it)
                 if (groanCooldown <= 0) { AudioManager.I?.Play(Sfx.ZombieGroan, 0.5f, Random.Range(0.85f, 1.15f)); groanCooldown = Random.Range(2.5f, 4.5f); }
             }
-            // contact with the squad - the forward offset and margin below are scaled by Rook's own
-            // GameplayScale blow-up (same knob RookAvatar/WeaponVisual use): they used to be fixed at
-            // 0.35/0.3, tuned against his old ~1.4m primitive body, so this check fired only once a zombie
-            // was already deep inside his current, 2.5x-larger rigged silhouette - visible as the zombie
-            // model clipping through Rook's head/backpack in QA before popping.
-            float rookForwardOffset = 0.35f * RookAvatar.GameplayScale;
-            float rookMargin = 0.3f * RookAvatar.GameplayScale;
-            if (Vector2.Distance(new Vector2(p.x, p.z), new Vector2(sp.x, sp.z + rookForwardOffset)) < squad.Radius + rookMargin)
+            // Contact uses the actual rendered bodies (TouchesBody), not the formation's enclosing circle -
+            // that circle is centered ahead of Rook and much bigger than any individual body, so it used to
+            // trigger a loss metres before a zombie was anywhere near a visible soldier.
+            if (squad.TouchesBody(p, hitRadius))
             {
                 if (squad.Rook.ShieldActive) { gm.Kills++; AudioManager.I?.Play(Sfx.ZombieHit, 0.6f); Effects.Spark(p + Vector3.up, new Color(0.6f, 0.94f, 0.94f)); }
-                else squad.Lose(Mathf.Max(0, Mathf.RoundToInt(Tuning.Current.zombieContactDamageMult)));
+                else squad.Lose(Mathf.Max(0, Mathf.RoundToInt(Tuning.Current.zombieContactDamageMult)), "zombie");
                 Alive = false; gm.Unregister(this);
                 Effects.Burst(p + Vector3.up, 10, new Color(0.56f, 0.69f, 0.29f), 4f);
                 // Pop() grows and floats the zombie in place for its last 0.16s - played at the raw

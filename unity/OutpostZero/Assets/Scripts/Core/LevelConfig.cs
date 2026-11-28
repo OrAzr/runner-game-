@@ -126,7 +126,7 @@ namespace OutpostZero
 
         static LevelConfig Level1() => new LevelConfig
         {
-            runSpeed = 6.2f, bossDistance = 220f, bossHp = 900f, bossSpeed = 2.4f, bossStartGap = 20f, squadCap = 12,
+            runSpeed = 6.2f, bossDistance = 220f, bossHp = 480f, bossSpeed = 2.4f, bossStartGap = 20f, squadCap = 12,
             gates = new List<GateDef> {
                 new GateDef(20, "+3", "+2"), new GateDef(55, "+2", "#-6"), new GateDef(95, "+4", "+2"),
                 new GateDef(135, "#-8", "+3"), new GateDef(175, "+3", "x2"),
@@ -140,7 +140,7 @@ namespace OutpostZero
 
         static LevelConfig Level2() => new LevelConfig
         {
-            runSpeed = 6.3f, bossDistance = 260f, bossHp = 1100f, bossSpeed = 2.6f, bossStartGap = 20f, squadCap = 16,
+            runSpeed = 6.3f, bossDistance = 260f, bossHp = 590f, bossSpeed = 2.6f, bossStartGap = 20f, squadCap = 16,
             gates = new List<GateDef> {
                 new GateDef(20, "+4", "+3"), new GateDef(55, "#-10", "+3"), new GateDef(95, "+3", "#-10"),
                 new GateDef(140, "+5", "x2"), new GateDef(185, "#-12", "+4"), new GateDef(225, "+3", "#-14"),
@@ -155,7 +155,7 @@ namespace OutpostZero
 
         static LevelConfig Level3() => new LevelConfig
         {
-            runSpeed = 6.45f, bossDistance = 300f, bossHp = 1350f, bossSpeed = 2.9f, bossStartGap = 19f, squadCap = 20,
+            runSpeed = 6.45f, bossDistance = 300f, bossHp = 720f, bossSpeed = 2.9f, bossStartGap = 19f, squadCap = 20,
             gates = new List<GateDef> {
                 new GateDef(20, "+3", "#-14"), new GateDef(55, "#-16", "+4"), new GateDef(95, "/2", "+4"),
                 new GateDef(140, "#-18", "+3"), new GateDef(185, "+4", "#-20"), new GateDef(230, "x2", "#-16"),
@@ -170,7 +170,7 @@ namespace OutpostZero
 
         static LevelConfig Level4() => new LevelConfig
         {
-            runSpeed = 6.6f, bossDistance = 340f, bossHp = 1600f, bossSpeed = 3.1f, bossStartGap = 19f, squadCap = 24,
+            runSpeed = 6.6f, bossDistance = 340f, bossHp = 850f, bossSpeed = 3.1f, bossStartGap = 19f, squadCap = 24,
             gates = new List<GateDef> {
                 new GateDef(20, "+3", "#-16"), new GateDef(55, "#-18", "+3"), new GateDef(95, "#-22", "+4"),
                 new GateDef(140, "/2", "#-18"), new GateDef(185, "+4", "#-24"), new GateDef(230, "#-20", "x1.6"),
@@ -186,7 +186,7 @@ namespace OutpostZero
 
         static LevelConfig Level5() => new LevelConfig
         {
-            runSpeed = 6.75f, bossDistance = 380f, bossHp = 1850f, bossSpeed = 3.3f, bossStartGap = 18f, squadCap = 28,
+            runSpeed = 6.75f, bossDistance = 380f, bossHp = 990f, bossSpeed = 3.3f, bossStartGap = 18f, squadCap = 28,
             gates = new List<GateDef> {
                 new GateDef(20, "#-18", "+3"), new GateDef(55, "#-22", "+3"), new GateDef(95, "/2", "#-20"),
                 new GateDef(140, "#-26", "+4"), new GateDef(185, "#-24", "/2"), new GateDef(230, "x1.5", "#-28"),
@@ -202,7 +202,7 @@ namespace OutpostZero
 
         static LevelConfig Level6() => new LevelConfig
         {
-            runSpeed = 6.9f, bossDistance = 420f, bossHp = 2100f, bossSpeed = 3.5f, bossStartGap = 18f, squadCap = 32,
+            runSpeed = 6.9f, bossDistance = 420f, bossHp = 1120f, bossSpeed = 3.5f, bossStartGap = 18f, squadCap = 32,
             gates = new List<GateDef> {
                 new GateDef(20, "#-20", "+3"), new GateDef(55, "#-24", "#-18"), new GateDef(95, "/2", "+4"),
                 new GateDef(135, "#-28", "/2"), new GateDef(175, "#-26", "+4"), new GateDef(215, "#-30", "x1.4"),
@@ -218,7 +218,7 @@ namespace OutpostZero
 
         static LevelConfig Level7() => new LevelConfig
         {
-            runSpeed = 7.0f, bossDistance = 460f, bossHp = 2350f, bossSpeed = 3.7f, bossStartGap = 17f, squadCap = 36,
+            runSpeed = 7.0f, bossDistance = 460f, bossHp = 1250f, bossSpeed = 3.7f, bossStartGap = 17f, squadCap = 36,
             gates = new List<GateDef> {
                 new GateDef(20, "#-24", "+3"), new GateDef(60, "#-28", "/2"), new GateDef(100, "#-30", "+4"),
                 new GateDef(140, "/2", "#-28"), new GateDef(180, "#-32", "+3"), new GateDef(220, "x1.3", "#-30"),
@@ -234,7 +234,7 @@ namespace OutpostZero
 
         static LevelConfig Level8() => new LevelConfig
         {
-            runSpeed = 7.1f, bossDistance = 500f, bossHp = 2600f, bossSpeed = 3.9f, bossStartGap = 17f, squadCap = 40,
+            runSpeed = 7.1f, bossDistance = 500f, bossHp = 1390f, bossSpeed = 3.9f, bossStartGap = 17f, squadCap = 40,
             gates = new List<GateDef> {
                 new GateDef(20, "#-26", "/2"), new GateDef(60, "#-30", "+3"), new GateDef(100, "/2", "#-32"),
                 new GateDef(140, "#-34", "+3"), new GateDef(180, "#-36", "/2"), new GateDef(220, "#-32", "x1.3"),
@@ -252,7 +252,7 @@ namespace OutpostZero
 
         static LevelConfig Level9() => new LevelConfig
         {
-            runSpeed = 7.2f, bossDistance = 540f, bossHp = 2850f, bossSpeed = 4.1f, bossStartGap = 16f, squadCap = 44,
+            runSpeed = 7.2f, bossDistance = 540f, bossHp = 1520f, bossSpeed = 4.1f, bossStartGap = 16f, squadCap = 44,
             gates = new List<GateDef> {
                 new GateDef(20, "#-28", "+3"), new GateDef(60, "#-32", "/2"), new GateDef(100, "#-34", "/2"),
                 new GateDef(140, "/3", "#-32"), new GateDef(180, "#-38", "+3"), new GateDef(220, "#-34", "x1.2"),
@@ -270,7 +270,7 @@ namespace OutpostZero
 
         static LevelConfig Level10() => new LevelConfig
         {
-            runSpeed = 7.3f, bossDistance = 580f, bossHp = 3100f, bossSpeed = 4.3f, bossStartGap = 16f, squadCap = 48,
+            runSpeed = 7.3f, bossDistance = 580f, bossHp = 1650f, bossSpeed = 4.3f, bossStartGap = 16f, squadCap = 48,
             gates = new List<GateDef> {
                 new GateDef(20, "#-30", "/2"), new GateDef(60, "#-34", "+3"), new GateDef(100, "/2", "#-36"),
                 new GateDef(140, "#-40", "/2"), new GateDef(180, "#-38", "+3"), new GateDef(220, "/3", "#-40"),

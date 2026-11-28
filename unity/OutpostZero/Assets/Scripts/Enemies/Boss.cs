@@ -5,7 +5,7 @@ namespace OutpostZero
     /// <summary>End-of-run brute. Big HP bar; walks down the road and devours soldiers on contact.</summary>
     public class Boss : Zombie
     {
-        float speed, biteTimer, roarTimer = 6f;
+        float speed, biteTimer, roarTimer = 6f, fightStart;
 
         public void Init(float hpValue, float walkSpeed)
         {
@@ -20,6 +20,8 @@ namespace OutpostZero
                 Prims.Part(PrimitiveType.Capsule, transform, new Vector3(-0.2f + i * 0.2f, 1.75f, 0.05f), new Vector3(0.1f, 0.18f, 0.1f), Prims.Mat(new Color(0.85f, 0.82f, 0.72f)));
             }
             GameManager.I.Register(this);
+            fightStart = Time.time;
+            Debug.Log("[BOSS] fight start hp=" + hpValue);
         }
 
         protected override void Update()
@@ -31,17 +33,22 @@ namespace OutpostZero
             Flash(dt);
             if (!gm.IsPlaying) return;
             var squad = gm.Squad; var sp = squad.transform.position; var p = transform.position;
-            float gap = p.z - sp.z;
             var toSquad = new Vector3(sp.x - p.x, 0, sp.z - p.z);
             if (toSquad.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(-toSquad.normalized);
             // Track the squad's x even once in biting range (not just while closing the gap), so it doesn't
             // drift out of alignment while the player keeps steering during the fight.
             p.x = Mathf.Lerp(p.x, sp.x, 0.3f * dt);
-            if (gap > squad.Radius + 1.6f) p.z -= speed * dt;
+            if (!squad.TouchesBody(p, 1.6f)) p.z -= speed * dt;
             else
             {
                 biteTimer -= dt;
-                if (biteTimer <= 0) { biteTimer = 0.4f; squad.Lose(Mathf.Max(1, Mathf.CeilToInt(squad.Count * 0.04f))); gm.Shake(0.25f); }
+                if (biteTimer <= 0 && squad.TouchesBody(p, 1.6f))
+                {
+                    biteTimer = 2.5f;
+                    squad.Lose(Mathf.Max(1, Mathf.CeilToInt(squad.Count * 0.04f)), "boss");
+                    Effects.Burst(sp + Vector3.up * 1.3f, 14, new Color(1f, 0.42f, 0.33f), 5f);
+                    gm.Shake(0.25f);
+                }
             }
             transform.position = p;
             roarTimer -= dt;
@@ -63,6 +70,7 @@ namespace OutpostZero
 
         protected override void Die()
         {
+            Debug.Log("[BOSS] down in " + (Time.time - fightStart).ToString("F2") + "s hpWas=" + maxHp);
             AudioManager.I?.Play(Sfx.BossRoar, 0.8f, 1.3f);
             Effects.Burst(transform.position + Vector3.up * 2, 60, new Color(0.62f, 0.82f, 0.29f), 8f);
             Effects.Burst(transform.position + Vector3.up * 2, 30, new Color(1f, 0.38f, 0.19f), 6f);
