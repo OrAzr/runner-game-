@@ -1,3 +1,4 @@
+using System.Collections;
 using UnityEngine;
 
 namespace OutpostZero
@@ -100,7 +101,17 @@ namespace OutpostZero
             holder.transform.SetParent(spin, false);
             var built = RookAvatar.Build(holder.transform, locked);
             preview = locked ? null : built;
-            FrameHero(built.Root);
+            StartCoroutine(FrameHeroNextFrame(built.Root));
+        }
+
+        /// <summary>Framing the same frame the rig is built would measure the rifle mid bind-pose -
+        /// HeroAnimator's aim-lock (LateUpdate) hasn't run yet, so the hand bone (and the weapon riding it)
+        /// can still be wherever the FBX rest pose left it, throwing the one-shot camera framing wildly off
+        /// (the hero ending up entirely outside the frame). Waiting a frame lets that lock run once first.</summary>
+        IEnumerator FrameHeroNextFrame(Transform heroRoot)
+        {
+            yield return null;
+            FrameHero(heroRoot);
         }
 
         /// <summary>Places the stage camera so the hero (head to feet, including the weapon) fits in the portrait

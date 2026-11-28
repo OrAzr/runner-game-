@@ -38,7 +38,7 @@ namespace OutpostZero
         // arm from a down-at-the-side rest towards up-and-forward.
         static readonly Quaternion RightArmAim = Quaternion.Euler(-65f, -8f, 8f);
         static readonly Quaternion RightForeArmAim = Quaternion.Euler(-18f, 0f, 0f);
-        static readonly Quaternion RightHandAim = Quaternion.identity; // zero offset: hand's local +Z stays exactly aimRoot.forward, so the muzzle is always level and forward regardless of the other bones' pose.
+        static readonly Quaternion RightHandAim = Quaternion.identity; // zero offset: hand's local +Z stays exactly aligned with the forearm, so the grip doesn't twist against the barrel.
         static readonly Quaternion LeftArmAim = Quaternion.Euler(-65f, 8f, -8f);
         static readonly Quaternion LeftForeArmAim = Quaternion.Euler(-18f, 0f, 0f);
         static readonly Quaternion LeftHandAim = Quaternion.identity;
@@ -133,6 +133,13 @@ namespace OutpostZero
             if (!graph.IsValid() || Time.time < lockUntil) return;
             int idx = FindIndex(contains);
             if (idx < 0 || idx == activeIndex) return;
+            // The very first clip this rig ever plays has nothing to crossfade from, so ramping its
+            // weight in over BlendSeconds like a normal transition just blends it in from an unposed
+            // mixer output - legs/spine sit near bind pose for that whole window while LockAimPose's
+            // hard rotation override already snaps the arms/hands to the aim pose every frame
+            // regardless of weight, so the rig reads as a disjointed body until the ramp finishes.
+            // Snapping straight to weight 1 here only skips the blend for this one first activation.
+            if (activeIndex < 0) weight[idx] = 1f;
             activeIndex = idx; loopFlag[idx] = loop; localTime[idx] = startTime;
         }
 
@@ -176,16 +183,17 @@ namespace OutpostZero
             }
 
             if (aimRoot == null) return;
-            // Hands and forearms aim world-forward and level, so the rifle stays horizontal down the
-            // road even when Rook's body is yawed ~20° toward the camera or pitched into the run.
-            // Shoulders still follow the body so the arms reach naturally from the yawed torso.
-            var levelForward = Quaternion.LookRotation(Vector3.forward, Vector3.up);
+            // The whole arm chain rotates rigidly off aimRoot (the character's own facing), not world
+            // space: shoulder, elbow and wrist all need the same basis or the forearm/hand swings out of
+            // line with the upper arm the moment the body yaws (the ~20° 3/4-view yaw in gameplay, or the
+            // character-select turntable), which is what sent the rifle floating off to the side detached
+            // from the body. Locking rotation only (not position) still keeps the clip's own reach/length.
             if (rightArm != null) rightArm.rotation = aimRoot.rotation * RightArmAim;
-            if (rightForeArm != null) rightForeArm.rotation = levelForward * RightForeArmAim;
-            if (rightHand != null) rightHand.rotation = levelForward * RightHandAim;
+            if (rightForeArm != null) rightForeArm.rotation = aimRoot.rotation * RightForeArmAim;
+            if (rightHand != null) rightHand.rotation = aimRoot.rotation * RightHandAim;
             if (leftArm != null) leftArm.rotation = aimRoot.rotation * LeftArmAim;
-            if (leftForeArm != null) leftForeArm.rotation = levelForward * LeftForeArmAim;
-            if (leftHand != null) leftHand.rotation = levelForward * LeftHandAim;
+            if (leftForeArm != null) leftForeArm.rotation = aimRoot.rotation * LeftForeArmAim;
+            if (leftHand != null) leftHand.rotation = aimRoot.rotation * LeftHandAim;
             // Spine2 is only partially pulled towards upright-forward (not hard-locked like the arms), so
             // the torso still breathes a little with the run cycle instead of reading as a stiff mannequin.
             if (spine2 != null) spine2.rotation = Quaternion.Slerp(spine2.rotation, aimRoot.rotation * Spine2Aim, 0.35f);

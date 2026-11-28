@@ -3,9 +3,6 @@ using UnityEngine;
 namespace OutpostZero
 {
     /// <summary>Primitive gun models. Hero gets the full kit; soldiers get the same silhouettes, smaller.</summary>
-    // After HeroAnimator poses the hands (default order 0), snap the weapon itself to world-forward
-    // so body yaw or a twisted hand socket cannot aim the barrel sideways.
-    [DefaultExecutionOrder(1000)]
     public class WeaponVisual : MonoBehaviour
     {
         public Transform Muzzle { get; private set; }
@@ -76,15 +73,6 @@ namespace OutpostZero
             var go = Prims.Part(PrimitiveType.Cylinder, parent, pos, new Vector3(radius, length * 0.5f, radius), mat);
             go.transform.localRotation = Quaternion.Euler(-90f, 0f, 0f);
             return go;
-        }
-
-        // After the clip has posed the hand, force this weapon (hero and soldiers) to point
-        // straight down the road and sit level. The grip stays in the hand because only
-        // rotation is overwritten; local position is left alone. The child mesh is already
-        // oriented so its barrel follows this transform's +Z.
-        void LateUpdate()
-        {
-            transform.rotation = Quaternion.LookRotation(Vector3.forward, Vector3.up);
         }
 
         GameObject BuildRifle(Transform root, float worldScale)

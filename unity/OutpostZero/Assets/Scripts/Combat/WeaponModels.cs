@@ -59,10 +59,13 @@ namespace OutpostZero
             // node's -90 X already stands the mesh up, so the magazine stays down and the scope stays on top.
             float rawLength = Mathf.Max(0.001f, bounds.size.x);
             float scale = targetLength / rawLength;
-            // -90 Y points the mirrored +X barrel down the road. With the weapon root
-            // world-locked to +Z, the mesh is already nearly level in that frame, so no
-            // extra pitch is applied (a negative X pitch now raises the muzzle).
-            anchor.transform.localRotation = Quaternion.Euler(0f, -90f, 0f);
+            // -90 Y points the mirrored +X barrel down the road; the mesh then sits muzzle-up in
+            // the hand's own frame, so a shared parent-space +X pitch (applied after the yaw, positive
+            // pitches +Z forward down towards -Y) brings the muzzle down to level, magazine still
+            // down. Same value for every weapon type and for both Rook and the soldiers -
+            // HeroAnimator's arm lock keeps the hand in the same character-relative frame for
+            // everyone, so one pitch fits all of them.
+            anchor.transform.localRotation = Quaternion.Euler(35f, 0f, 0f) * Quaternion.Euler(0f, -90f, 0f);
             anchor.transform.localScale = Vector3.one * scale;
 
             float tipHeight = bounds.size.y * 0.5f * scale;
