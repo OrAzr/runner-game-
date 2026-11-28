@@ -51,7 +51,7 @@ namespace OutpostZero
             AudioManager.I?.Play(Sfx.GateGood, 0.8f, 0.7f);
         }
 
-        public void Tick(float dt, float squadRadius)
+        public void Tick(float dt, float squadRadius, bool moving)
         {
             if (ShieldTime > 0) ShieldTime -= dt;
             if (Cooldown > 0) Cooldown -= dt;
@@ -61,8 +61,7 @@ namespace OutpostZero
                 shieldWall.transform.localScale = new Vector3(squadRadius * 2 + 0.6f, 1.6f, 0.12f);
                 shieldWall.transform.position = new Vector3(transform.position.x, 0.8f, transform.position.z + 1.1f);
             }
-            bool running = GameManager.I != null && (GameManager.I.State == GameState.Running || GameManager.I.State == GameState.BossFight);
-            if (avatar != null) avatar.Tick(dt, running);
+            if (avatar != null) avatar.Tick(dt, moving);
         }
     }
 }

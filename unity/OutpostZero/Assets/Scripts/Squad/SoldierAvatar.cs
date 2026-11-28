@@ -21,9 +21,12 @@ namespace OutpostZero
         // (soldiers sit closer to the camera than he does), swallowing him entirely at big squad sizes -
         // dropped into the 60-65% band the brief calls for so he reads as the clearly-larger leader.
         const float HeightRatioToRook = 0.62f;
-        const float TargetHeight = RookAvatar.RiggedTargetHeight * HeightRatioToRook;
+        // Public so Zombie/Boss can derive their own target heights off the squad's actual scale instead of
+        // a separately-tuned number that could drift apart from it (see Zombie.TargetHeight/BossTargetHeight).
+        public const float TargetHeight = RookAvatar.RiggedTargetHeight * HeightRatioToRook;
 
         static Material sharedMaterial;
+        static bool loggedScale;
 
         public static SoldierAvatar Build(Transform parent)
         {
@@ -51,6 +54,7 @@ namespace OutpostZero
             var bounds = Prims.CombinedBounds(root);
             if (bounds == null) { Object.Destroy(go); return null; }
             root.localScale = Vector3.one * (TargetHeight / Mathf.Max(0.01f, bounds.Value.size.y));
+            if (!loggedScale) { loggedScale = true; Debug.Log("[SCALE] soldier height=" + (bounds.Value.size.y * root.localScale.y)); }
 
             var mat = RiggedMaterial();
             var renderers = go.GetComponentsInChildren<Renderer>();
@@ -140,11 +144,11 @@ namespace OutpostZero
             return avatar;
         }
 
-        /// <summary>Running while the squad is running, Idle otherwise (menu/defeat); no-op on the primitive
-        /// body (Anim is null), which has no locomotion clips of its own.</summary>
-        public void Tick(bool running)
+        /// <summary>Running while the squad is actually moving forward, Idle otherwise (parked at the boss,
+        /// menu, defeat); no-op on the primitive body (Anim is null), which has no locomotion clips of its own.</summary>
+        public void Tick(bool moving)
         {
-            Anim?.Play(running ? "Running" : "Idle", true, running ? runStartTime : 0f);
+            Anim?.Play(moving ? "Running" : "Idle", true, moving ? runStartTime : 0f);
         }
     }
 }

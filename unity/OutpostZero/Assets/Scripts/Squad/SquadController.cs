@@ -24,6 +24,16 @@ namespace OutpostZero
         // so a gate/wave that jumps Count doesn't yank the whole pack to a new spacing in one frame.
         float spacing;
 
+        // Drives the run/idle animation off the squad's actual forward speed (not GameState) so it also
+        // reads correctly once BossFight parks the squad's z in place (see the p.z line in Update) instead
+        // of forcing Running/Run_and_Shoot while the squad visibly isn't moving. Smoothed so a single frame
+        // of near-zero delta (e.g. clamped at bossDistance) doesn't flicker the pose, and hysteresis (two
+        // thresholds, not one) stops it chattering right at the cutoff.
+        float forwardSpeed;
+        bool moving;
+        const float MovingOnSpeed = 1f;
+        const float MovingOffSpeed = 0.5f;
+
         public IReadOnlyList<Soldier> Soldiers => soldiers;
 
         public void Init(LevelConfig cfg)
@@ -43,11 +53,6 @@ namespace OutpostZero
         {
             var gm = GameManager.I; float dt = Time.deltaTime;
             bool playing = gm != null && gm.IsPlaying;
-            // Includes BossFight (not just Running) so soldiers keep playing the run-and-shoot pose - with
-            // the aim override from HeroAnimator.LockAimPose still locking their rifles forward - instead of
-            // falling back to the idle/look-around clip once the squad parks at the boss and stops advancing
-            // (see the p.z clamp below); matches HeroRook.Tick's own running check for the same state.
-            bool running = playing && (gm.State == GameState.Running || gm.State == GameState.BossFight);
             int vis = Mathf.Min(Count, MaxVisible);
             // Eases over roughly a second rather than snapping, so the pack visibly loosens/tightens as
             // Count changes instead of every soldier jumping to a new slot the instant a gate resolves.
@@ -55,6 +60,7 @@ namespace OutpostZero
             if (playing)
             {
                 var p = transform.position;
+                float prevZ = p.z;
                 if (gm.State == GameState.Running) p.z = Mathf.Min(level.bossDistance, p.z + level.runSpeed * dt);
                 float err = input.TargetX - p.x;
                 float desired = Mathf.Clamp(err * 8f, -10f, 10f);
@@ -68,9 +74,13 @@ namespace OutpostZero
                 p.x = Mathf.Clamp(p.x + vx * dt, -level.roadHalfWidth + edgeMargin, level.roadHalfWidth - edgeMargin);
                 lean = Mathf.Lerp(lean, Mathf.Clamp(-vx * 3.2f, -18f, 18f), Mathf.Min(1f, dt * 9f));
                 transform.position = p;
+                float rawSpeed = dt > 0.0001f ? (p.z - prevZ) / dt : 0f;
+                forwardSpeed = Mathf.Lerp(forwardSpeed, rawSpeed, Mathf.Min(1f, dt * 6f));
+                moving = moving ? forwardSpeed > MovingOffSpeed : forwardSpeed > MovingOnSpeed;
             }
-            SyncBodies(vis, running, dt);
-            Rook.Tick(dt, Radius);
+            else { forwardSpeed = 0f; moving = false; }
+            SyncBodies(vis, moving, dt);
+            Rook.Tick(dt, Radius, moving);
             // A squad-loss hit adds a quick backward pitch on top of the run pose (see RookAvatar.FlinchPitch)
             // instead of interrupting it, so Rook keeps running and shooting through the reaction.
             // Pitch is a small lean-into-the-run tilt (not the hunch fix - see HeroAnimator's Spine/Spine1
@@ -79,10 +89,10 @@ namespace OutpostZero
             // armor/backpack side instead of a flat back view) while he still reads as running forward -
             // cosmetic only, since fire direction (AutoShooter/Projectile) is always hardcoded world-forward
             // regardless of this transform's rotation, and there are no colliders on the visual body.
-            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler((running ? 4f : 2f) - Rook.HitFlinch * 22f, 20f, lean);
+            if (Rook.Body) Rook.Body.localRotation = Quaternion.Euler((moving ? 4f : 2f) - Rook.HitFlinch * 22f, 20f, lean);
         }
 
-        void SyncBodies(int vis, bool running, float dt)
+        void SyncBodies(int vis, bool moving, float dt)
         {
             while (soldiers.Count < Mathf.Max(1, vis)) soldiers.Add(soldiers.Count == 0 ? null : SpawnSoldier(soldiers.Count, vis));
             // Removed soldiers play a short death pop themselves (Soldier.Kill) rather than vanishing
@@ -95,12 +105,12 @@ namespace OutpostZero
             {
                 var slot = transform.position + Formation.Offset(i, vis, vx, spacing, t);
                 slot.x = Mathf.Clamp(slot.x, -hw, hw);
-                soldiers[i].Tick(slot, running, dt, lean, hw);
+                soldiers[i].Tick(slot, moving, dt, lean, hw);
             }
             // The rigged model plays its own Run_and_Shoot cycle, so the old procedural hop (added on top of
             // every frame's pose) doubled up with the clip's own motion and read as a visible mid-air bounce;
             // the primitive fallback has no locomotion animation of its own, so it still gets the bob.
-            float bob = running && !Rook.IsRigged ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0f;
+            float bob = moving && !Rook.IsRigged ? Mathf.Abs(Mathf.Sin(Time.time * 12f)) * 0.07f : 0f;
             Rook.Body.localPosition = Formation.Offset(0, vis, vx, spacing, t) + Vector3.up * bob;
             Rook.Body.gameObject.SetActive(Count > 0);
         }
