@@ -73,7 +73,7 @@ namespace OutpostZero
             // soldiers' once everything else lines up, so the hero kit alone gets an extra yaw to turn the
             // barrel back around to his facing side. A pure yaw only swaps forward/backward: it leaves the
             // already-correct level pitch and magazine-down roll untouched.
-            if (heroKit) mount = Quaternion.Euler(0f, 180f, 0f) * mount;
+            if (heroKit) mount = Quaternion.identity; // DIAGNOSTIC: isolate the hero kit's raw mesh direction
             anchor.transform.localRotation = mount;
             anchor.transform.localScale = Vector3.one * scale;
 
