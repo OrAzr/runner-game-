@@ -6,6 +6,9 @@ namespace OutpostZero
     public class Boss : Zombie
     {
         float speed, biteTimer, roarTimer = 6f, fightStart;
+        // Sped up (same reasoning as Zombie.DeadSpeed) so the collapse reads as finished within the
+        // existing 0.9s win-delay window instead of changing that delay.
+        const float DeadSpeed = 2.2f;
 
         protected override string ResourcePath => "Models/Boss/boss";
         protected override bool IsBossModel => true;
@@ -96,7 +99,7 @@ namespace OutpostZero
             Effects.Burst(transform.position + Vector3.up * 2, 60, new Color(0.62f, 0.82f, 0.29f), 8f);
             Effects.Burst(transform.position + Vector3.up * 2, 30, new Color(1f, 0.38f, 0.19f), 6f);
             GameManager.I.Invoke(nameof(GameManager.WinAfterBoss), 0.9f);
-            if (anim != null) { anim.TriggerOnce("Dead"); Invoke(nameof(HideBody), 0.9f); }
+            if (anim != null) { anim.TriggerOnce("Dead", DeadSpeed); Invoke(nameof(HideBody), 0.9f); }
             else gameObject.SetActive(false);
         }
 

@@ -166,6 +166,9 @@ namespace OutpostZero
 
         const float DeathHoldSeconds = 1.2f;
         const float PunchBeforeDeathSeconds = 0.4f;
+        // Authored Dead clip is 90 frames @30fps (3.0s) and barely starts falling before 1.4s - sped up so
+        // the fall lands well inside DeathHoldSeconds instead of reading as a freeze-and-vanish.
+        const float DeadSpeed = 2.6f;
 
         /// <summary>Plays the rigged body's death out (Punch_Combo into Dead for a kill-on-contact, straight
         /// to Dead for a bullet kill), holding the corpse for DeathHoldSeconds before despawning - the actual
@@ -176,13 +179,13 @@ namespace OutpostZero
             if (anim != null)
             {
                 if (combatKill) anim.TriggerOnce("Punch_Combo");
-                else anim.TriggerOnce("Dead");
+                else anim.TriggerOnce("Dead", DeadSpeed);
                 bool deadStarted = !combatKill;
                 float t = 0f;
                 while (t < DeathHoldSeconds)
                 {
                     t += Time.deltaTime;
-                    if (!deadStarted && t >= PunchBeforeDeathSeconds) { anim.TriggerOnce("Dead"); deadStarted = true; }
+                    if (!deadStarted && t >= PunchBeforeDeathSeconds) { anim.TriggerOnce("Dead", DeadSpeed); deadStarted = true; }
                     yield return null;
                 }
                 Destroy(gameObject);

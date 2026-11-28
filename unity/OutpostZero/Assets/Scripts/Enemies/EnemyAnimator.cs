@@ -20,6 +20,7 @@ namespace OutpostZero
         float[] localTime;
         bool[] loopFlag;
         float[] weight;
+        float[] rate;
         int activeIndex = -1;
         float lockUntil;
 
@@ -46,12 +47,14 @@ namespace OutpostZero
             localTime = new float[clipList.Length];
             loopFlag = new bool[clipList.Length];
             weight = new float[clipList.Length];
+            rate = new float[clipList.Length];
             for (int i = 0; i < clipList.Length; i++)
             {
                 clipPlayables[i] = AnimationClipPlayable.Create(graph, clipList[i]);
                 clipPlayables[i].SetApplyFootIK(false);
                 graph.Connect(clipPlayables[i], 0, mixer, i);
                 mixer.SetInputWeight(i, 0f);
+                rate[i] = 1f;
             }
             graph.Play();
             return true;
@@ -68,23 +71,28 @@ namespace OutpostZero
         /// <summary>Crossfades to the named clip (substring match, e.g. "Walking", "Charged_Ground_Slam") if
         /// it isn't already the active one. Ignored while a TriggerOnce one-shot is still playing. startTime
         /// seeds the clip's local time the first time it becomes active (mod'd against clip length in
-        /// Update), letting a crowd of otherwise-identical bodies start their cycles at different phases.</summary>
-        public void Play(string contains, bool loop, float startTime = 0f)
+        /// Update), letting a crowd of otherwise-identical bodies start their cycles at different phases.
+        /// speedMultiplier scales just this clip's playback rate on top of the instance-wide Speed jitter.</summary>
+        public void Play(string contains, bool loop, float startTime = 0f, float speedMultiplier = 1f)
         {
             if (!graph.IsValid() || Time.time < lockUntil) return;
             int idx = FindIndex(contains);
             if (idx < 0 || idx == activeIndex) return;
-            activeIndex = idx; loopFlag[idx] = loop; localTime[idx] = startTime;
+            activeIndex = idx; loopFlag[idx] = loop; localTime[idx] = startTime; rate[idx] = speedMultiplier;
         }
 
-        /// <summary>Plays the named clip once, locking out Play() until it finishes.</summary>
-        public void TriggerOnce(string contains)
+        /// <summary>Plays the named clip once, locking out Play() until it finishes. speedMultiplier scales
+        /// just this clip's playback rate (e.g. to make an authored death clip collapse faster without
+        /// touching the authored clip asset or any gameplay timing). startTime seeds the clip's local time,
+        /// e.g. to resume part-way through.</summary>
+        public void TriggerOnce(string contains, float speedMultiplier = 1f, float startTime = 0f)
         {
             if (!graph.IsValid()) return;
             int idx = FindIndex(contains);
             if (idx < 0) return;
-            activeIndex = idx; loopFlag[idx] = false; localTime[idx] = 0f;
-            lockUntil = Time.time + Mathf.Max(0.05f, clipList[idx].length);
+            activeIndex = idx; loopFlag[idx] = false; localTime[idx] = startTime; rate[idx] = speedMultiplier;
+            float remaining = Mathf.Max(0f, clipList[idx].length - startTime);
+            lockUntil = Time.time + Mathf.Max(0.05f, remaining / Mathf.Max(0.0001f, speedMultiplier));
         }
 
         void Update()
@@ -97,8 +105,10 @@ namespace OutpostZero
                 weight[i] = Mathf.MoveTowards(weight[i], isActive ? 1f : 0f, dt / BlendSeconds);
                 mixer.SetInputWeight(i, weight[i]);
                 if (weight[i] <= 0f && !isActive) continue;
-                localTime[i] += dt * Speed;
+                localTime[i] += dt * Speed * rate[i];
                 float len = Mathf.Max(0.0001f, clipList[i].length);
+                // Non-looping clips clamp at the last frame (never wrap back to t=0/bind pose) and stay
+                // there at full weight since activeIndex only changes on the next explicit Play/TriggerOnce.
                 float t = loopFlag[i] ? localTime[i] % len : Mathf.Min(localTime[i], len);
                 clipPlayables[i].SetTime(t);
             }
